@@ -1,6 +1,6 @@
 services:
   downloader:
-    build: ./downloader
+    build: downloader_service
     image: image-downloader-service
     container_name: image_downloader
     volumes:

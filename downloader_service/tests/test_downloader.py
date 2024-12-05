@@ -3,7 +3,7 @@ import pytest
 import aiohttp
 from unittest.mock import AsyncMock, patch
 
-from downloader.downloader import (
+from downloader_service.downloader import (
     safe_move_file,
     download_image,
     download_with_retries,
