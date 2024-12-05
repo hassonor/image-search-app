@@ -1,0 +1,4 @@
+aiohttp==3.11.7
+aiofiles==23.2.0
+aiohttp-client-cache==0.12.1
+pytest==7.4.0

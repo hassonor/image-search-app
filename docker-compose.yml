@@ -1,0 +1,37 @@
+services:
+  downloader:
+    build: ./downloader
+    image: image-downloader-service
+    container_name: image_downloader
+    volumes:
+      - ./shared_volume:/app/shared_volume
+    environment:
+      - DATASET_FILE=image_urls.txt
+      - OUTPUT_DIR=./shared_volume/images
+      - TEMP_DIR=/tmp/images
+#
+#  embedder:
+#    build:
+#      context: ./embedder
+#    depends_on:
+#      - rabbitmq
+#    environment:
+#      - RABBITMQ_HOST=rabbitmq
+#    volumes:
+#      - ./shared_volume:/shared_volume
+#
+#  vector_db:
+#    build:
+#      context: ./vector_db
+#    ports:
+#      - "8000:8000"   # API for search
+#    volumes:
+#      - ./shared_volume:/shared_volume
+#
+#  ui:
+#    build:
+#      context: ./ui
+#    ports:
+#      - "8080:8080"
+#    depends_on:
+#      - vector_db
