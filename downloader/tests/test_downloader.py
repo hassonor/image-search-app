@@ -15,22 +15,31 @@ from downloader.downloader import (
 
 URL = "http://example.com/image1.jpg"
 FILE_NAME = "image1.jpg"
+SHARED_VOLUME = os.path.dirname(OUTPUT_DIR)  # Assuming shared_volume is the parent of OUTPUT_DIR
 
 
 @pytest.fixture(scope="module")
 def setup_dirs():
     """
-    Fixture to set up and clean up test directories.
+    Fixture to set up and clean up test directories, including removing the shared_volume directory.
     """
     os.makedirs(TEMP_DIR, exist_ok=True)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    yield
+    print(f"Created directories: TEMP_DIR={TEMP_DIR}, OUTPUT_DIR={OUTPUT_DIR}")
+
+    yield  # Tests run here
+
     # Cleanup after tests
-    for dir_path in [TEMP_DIR, OUTPUT_DIR]:
-        if os.path.exists(dir_path):
-            for file in os.listdir(dir_path):
-                os.remove(os.path.join(dir_path, file))
-            os.rmdir(dir_path)
+    if os.path.exists(SHARED_VOLUME):
+        for root, dirs, files in os.walk(SHARED_VOLUME, topdown=False):
+            for file in files:
+                print(f"Removing file {file} from {root}")
+                os.remove(os.path.join(root, file))
+            for dir in dirs:
+                print(f"Removing directory {dir} from {root}")
+                os.rmdir(os.path.join(root, dir))
+        os.rmdir(SHARED_VOLUME)
+        print(f"Removed shared_volume directory: {SHARED_VOLUME}")
 
 
 @pytest.mark.asyncio
@@ -40,11 +49,12 @@ async def test_safe_move_file_success(setup_dirs):
 
     with open(temp_file, "w") as f:
         f.write("test content")
+    print(f"Written test content to {temp_file}")
 
     await safe_move_file(temp_file, final_file)
 
-    assert os.path.exists(final_file), "File should be moved to the final directory"
-    assert not os.path.exists(temp_file), "Temp file should no longer exist"
+    assert os.path.exists(final_file), f"File {final_file} should exist after move"
+    assert not os.path.exists(temp_file), f"Temp file {temp_file} should no longer exist"
 
 
 @pytest.mark.asyncio
@@ -58,7 +68,9 @@ async def test_download_image_success(setup_dirs):
         async with aiohttp.ClientSession() as client:
             await download_image(client, URL)
 
-    assert os.path.exists(os.path.join(OUTPUT_DIR, FILE_NAME)), "Downloaded file should exist"
+    output_file = os.path.join(OUTPUT_DIR, FILE_NAME)
+    print(f"Checking if file exists at {output_file}")
+    assert os.path.exists(output_file), "Downloaded file should exist"
 
 
 @pytest.mark.asyncio
