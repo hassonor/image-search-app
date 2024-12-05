@@ -10,7 +10,7 @@ import aiohttp
 from aiofiles import open as aio_open
 from aiohttp_client_cache import CachedSession
 
-from .config import (
+from config import (
     DATASET_FILE, OUTPUT_DIR, TEMP_DIR, CONCURRENT_REQUESTS, RETRIES, TIMEOUT,
     BATCH_SIZE, CHUNK_SIZE, CACHE_EXPIRATION
 )
