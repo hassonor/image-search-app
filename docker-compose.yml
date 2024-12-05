@@ -1,6 +1,6 @@
 services:
   downloader:
-    build: downloader_service
+    build: ./downloader_service
     image: image-downloader-service
     container_name: image_downloader
     volumes:
@@ -9,16 +9,15 @@ services:
       - DATASET_FILE=image_urls.txt
       - OUTPUT_DIR=./shared_volume/images
       - TEMP_DIR=/tmp/images
-#
-#  embedder:
-#    build:
-#      context: ./embedder
-#    depends_on:
-#      - rabbitmq
-#    environment:
-#      - RABBITMQ_HOST=rabbitmq
-#    volumes:
-#      - ./shared_volume:/shared_volume
+
+  embedding_service:
+    build: ./embedding_service
+    image: embedding-generator-service
+    container_name: embedding_generator
+    volumes:
+      - ./shared_volume:/app/shared_volume
+    depends_on:
+      - downloader
 #
 #  vector_db:
 #    build:
