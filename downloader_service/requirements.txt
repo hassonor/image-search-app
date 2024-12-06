@@ -1,4 +1,25 @@
-aiohttp==3.11.7
-aiofiles==23.2.0
-aiohttp-client-cache==0.12.1
+# downloader_service/requirements.txt
+
+# Configuration
+python-dotenv==1.0.1
+pydantic==1.10.7
+
+# Asynchronous Libraries
+aiohttp==3.11.10
+aio-pika==9.5.3
+redis==4.5.4  # Updated to redis-py with asyncio support
+asyncpg==0.27.0
+
+# Database
+asyncpg==0.27.0
+
+# Bloom Filter
+pybloom-live==4.0.0
+
+# Metrics
+prometheus_client==0.16.0
+
+# Testing
 pytest==7.4.0
+pytest-mock==3.11.1
+

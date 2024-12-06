@@ -1,0 +1,20 @@
+# prometheus/prometheus.yml
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'downloader_service'
+    static_configs:
+      - targets: ['downloader:8000']
+
+  - job_name: 'redis_exporter'
+    static_configs:
+      - targets: ['redis_exporter:9121']
+
+  - job_name: 'rabbitmq_exporter'
+    static_configs:
+      - targets: ['rabbitmq_exporter:9419']
+
+  - job_name: 'postgres_exporter'
+    static_configs:
+      - targets: ['postgres_exporter:9187']

@@ -1,20 +1,46 @@
-FROM python:3.11.9-slim
+# downloader_service/Dockerfile
 
-# Set a working directory
+# Stage 1: Build
+FROM python:3.11-slim as builder
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Set work directory
 WORKDIR /app
 
-# Copy requirements first to leverage caching
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# Install build dependencies
+RUN apt-get update && apt-get install -y build-essential gcc
 
-# Copy the downloader code
-COPY config.py downloader.py tests/ ./
-COPY image_urls.txt ./
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --upgrade pip
+RUN pip wheel --no-cache-dir --wheel-dir /app/wheels -r requirements.txt
 
-# Create output directories
-RUN mkdir -p /app/shared_volume/images && mkdir -p /tmp/images
+# Stage 2: Final Image
+FROM python:3.11-slim
 
-# Set environment variables if needed
-# ENV DATASET_FILE="image_urls.txt" ...
+WORKDIR /app
 
-CMD ["python", "downloader.py"]
+# Install runtime dependencies
+COPY --from=builder /app/wheels /wheels
+RUN pip install --no-cache /wheels/*
+
+# Copy application code
+COPY . .
+
+# Create necessary directories as root
+RUN mkdir -p /app/images /app_input
+
+# Create non-root user
+RUN adduser --disabled-password --gecos "" downloader
+
+# Change ownership of the work directory and created directories to 'downloader'
+RUN chown -R downloader:downloader /app /app/images /app_input
+
+# Expose metrics port
+EXPOSE 8000
+
+# Set the entrypoint command
+CMD ["python", "src/main.py"]
