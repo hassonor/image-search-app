@@ -1,0 +1,10 @@
+
+cluster.name: "image-search-cluster"
+network.host: 0.0.0.0
+http.port: 9200
+
+# Disable security features for simplicity (not recommended for production)
+xpack.security.enabled: false
+xpack.ml.enabled: false
+xpack.monitoring.enabled: false
+xpack.watcher.enabled: false

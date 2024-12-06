@@ -7,7 +7,7 @@ pydantic==1.10.7
 # Asynchronous Libraries
 aiohttp==3.11.10
 aio-pika==9.5.3
-redis==4.5.4  # Updated to redis-py with asyncio support
+redis==4.5.4
 asyncpg==0.27.0
 
 # Database

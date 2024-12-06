@@ -1,4 +1,3 @@
-# embedding_service/Dockerfile
 
 FROM pytorch/pytorch:2.5.1-cuda11.8-cudnn9-runtime
 
@@ -28,8 +27,9 @@ RUN pip install -r requirements.txt
 # Copy application code
 COPY src/ ./src/
 
-# Expose metrics port
-EXPOSE 8001
+# Expose metrics port and API port
+EXPOSE 8002
+EXPOSE 8080
 
-# Set the entrypoint command
-CMD ["python", "src/main.py"]
+# Set the entrypoint command using Uvicorn
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8080"]

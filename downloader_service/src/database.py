@@ -43,16 +43,31 @@ class Database:
             await connection.execute(create_table_query)
             logger.info("Database initialized and ready.")
 
-    async def store_image_record(self, url: str, file_path: str):
-        """Store a record of the downloaded image in PostgreSQL."""
+    async def store_image_record(self, url: str, file_path: str) -> Optional[int]:
+        """Store a record of the downloaded image in PostgreSQL and return the image ID."""
         insert_query = """
             INSERT INTO images (url, file_path) VALUES ($1, $2)
-            ON CONFLICT (url) DO NOTHING;
+            ON CONFLICT (url) DO NOTHING
+            RETURNING id;
         """
         try:
             async with self.pool.acquire() as connection:
-                await connection.execute(insert_query, url, file_path)
-            logger.debug("Stored image record for URL: %s", url)
+                result = await connection.fetchrow(insert_query, url, file_path)
+                if result:
+                    image_id = result['id']
+                    logger.debug("Stored image record for URL: %s with ID: %s", url, image_id)
+                    return image_id
+                else:
+                    # If the URL already exists, fetch its ID
+                    select_query = "SELECT id FROM images WHERE url = $1;"
+                    existing = await connection.fetchrow(select_query, url)
+                    if existing:
+                        image_id = existing['id']
+                        logger.debug("URL already exists. Retrieved image ID: %s", image_id)
+                        return image_id
+                    else:
+                        logger.error("Failed to retrieve image ID for URL: %s", url)
+                        return None
         except Exception as e:
             logger.exception("Error storing image record for URL %s: %s", url, e)
             raise

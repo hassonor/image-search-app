@@ -1,4 +1,3 @@
-version: '3.9'
 services:
   postgres:
     image: postgres:14
@@ -46,7 +45,7 @@ services:
   downloader:
     build:
       context: ./downloader_service
-      dockerfile: Dockerfile  # Optional if named 'Dockerfile'
+      dockerfile: Dockerfile
     env_file:
       - .env
     environment:
@@ -81,6 +80,59 @@ services:
     ports:
       - "8000:8000"  # Metrics
 
+  embedding_generator:
+    build:
+      context: ./embedding_service
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    volumes:
+      - ./shared_volume/images:/app/images
+    depends_on:
+      - elasticsearch
+      - postgres
+      - redis
+      - rabbitmq
+    ports:
+      - "8001:8001"  # Metrics
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    restart: always
+    environment:
+      ES_JAVA_OPTS: -Xmx1g -Xms1g
+      bootstrap.memory_lock: "true"
+      discovery.type: single-node
+      network.host: 0.0.0.0
+      transport.host: 127.0.0.1
+      http.host: 0.0.0.0
+      xpack.security.enabled: 'false'  # Disable security
+      xpack.monitoring.collection.enabled: 'true'
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep '\"status\":\"green\"'" ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  ui:
+    build:
+      context: ./ui_service
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    depends_on:
+      - embedding_generator
+      - elasticsearch
+    ports:
+      - "8080:8080"  # UI/API
+      - "8002:8002"  # Metrics
+
+
   prometheus:
     image: prom/prometheus:latest
     volumes:
@@ -91,6 +143,8 @@ services:
       - "9090:9090"
     depends_on:
       - downloader
+      - embedding_generator
+      - ui
 
   grafana:
     image: grafana/grafana:latest
@@ -160,29 +214,6 @@ volumes:
   pgdata:
   redisdata:
   pgadmin_data:
+  esdata:
 
 
-#  embedding_service:
-#    build: ./embedding_service
-#    image: embedding-generator-service
-#    container_name: embedding_generator
-#    volumes:
-#      - ./shared_volume:/app/shared_volume
-#    depends_on:
-#      - downloader
-#
-#  vector_db:
-#    build:
-#      context: ./vector_db
-#    ports:
-#      - "8000:8000"   # API for search
-#    volumes:
-#      - ./shared_volume:/shared_volume
-#
-#  ui:
-#    build:
-#      context: ./ui
-#    ports:
-#      - "8080:8080"
-#    depends_on:
-#      - vector_db

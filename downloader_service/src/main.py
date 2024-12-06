@@ -11,6 +11,23 @@ import aio_pika
 import json
 import os
 
+
+async def publish_embeddings(image_id: int, image_url: str, image_path: str):
+    """
+    Publish a message to the image_embeddings queue with image_id and image_path.
+    """
+    message = {
+        "image_id": image_id,
+        "image_url": image_url,
+        "image_path": image_path
+    }
+    try:
+        await rabbitmq_client.publish(settings.EMBEDDING_QUEUE, json.dumps(message))
+        logger.info(f"Published embedding message for image_id: {image_id}")
+    except Exception as e:
+        logger.exception(f"Failed to publish embedding message for image_id {image_id}: {e}")
+
+
 async def publish_urls(file_path: str, rabbitmq_client, redis_client):
     """
     Read URLs from a file and publish them to RabbitMQ.
@@ -46,18 +63,24 @@ async def publish_urls(file_path: str, rabbitmq_client, redis_client):
 
     logger.info("Completed publishing URLs.")
 
-async def process_url(url: str, downloader_service: DownloaderService):
+
+async def process_url(image_url: str, downloader_service: DownloaderService):
     """
     Callback function to process a single URL.
     """
-    logger.debug(f"Processing URL: {url}")
-    await downloader_service.download_image(url)
+    logger.debug(f"Processing URL: {image_url}")
+    result = await downloader_service.download_image(image_url)
+    if result:
+        image_id, image_path = result
+        await publish_embeddings(image_id, image_url, image_path)
+
 
 async def message_callback(url: str, downloader_service: DownloaderService):
     """
     Wrapper callback to process the URL.
     """
     await process_url(url, downloader_service)
+
 
 async def main():
     """
@@ -72,7 +95,7 @@ async def main():
         start_metrics_server(port=8000)
 
         # Path to the URLs file inside the container
-        urls_file = '/app_input/image_urls.txt'
+        urls_file = settings.URLS_FILE_PATH
 
         # Publish URLs from the file
         await publish_urls(urls_file, rabbitmq_client, redis_client)
@@ -99,6 +122,7 @@ async def main():
         await redis_client.close()
         await database.close()
 
+
 def shutdown():
     """
     Handle shutdown signals.
@@ -106,6 +130,7 @@ def shutdown():
     logger.info("Shutdown signal received. Stopping service...")
     for task in asyncio.all_tasks():
         task.cancel()
+
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()

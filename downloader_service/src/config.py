@@ -1,5 +1,3 @@
-# src/config.py
-import os
 from pydantic import BaseSettings, Field
 
 
@@ -39,6 +37,9 @@ class Settings(BaseSettings):
     BLOOM_EXPECTED_ITEMS: int = Field(10_000_000, env="BLOOM_EXPECTED_ITEMS")
     BLOOM_ERROR_RATE: float = Field(0.0001, env="BLOOM_ERROR_RATE")
     NUM_CONSUMERS: int = Field(4, env="NUM_CONSUMERS")
+
+    # Embedding Queue
+    EMBEDDING_QUEUE: str = Field("image_embeddings", env="EMBEDDING_QUEUE")
 
     class Config:
         env_file = ".env"

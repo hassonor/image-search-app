@@ -4,12 +4,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Prometheus metrics
-images_downloaded = Counter('downloader_images_downloaded_total', 'Number of images successfully downloaded')
-download_errors = Counter('downloader_download_errors_total', 'Number of download errors')
-download_latency = Histogram('downloader_download_latency_seconds', 'Time taken to download images')
+embeddings_generated = Counter('embedding_service_embeddings_generated_total', 'Number of embeddings successfully generated and indexed')
+embedding_errors = Counter('embedding_service_embedding_errors_total', 'Number of embedding generation errors')
+embedding_latency = Histogram('embedding_service_embedding_latency_seconds', 'Time taken to generate and index embeddings')
 
 
-def start_metrics_server(port: int = 8000):
+def start_metrics_server(port: int = 8001):
     """
     Start Prometheus metrics server on the given port.
 

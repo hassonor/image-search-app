@@ -4,12 +4,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Prometheus metrics
-images_downloaded = Counter('downloader_images_downloaded_total', 'Number of images successfully downloaded')
-download_errors = Counter('downloader_download_errors_total', 'Number of download errors')
-download_latency = Histogram('downloader_download_latency_seconds', 'Time taken to download images')
+queries_total = Counter('ui_service_queries_total', 'Total number of search queries received')
+query_errors_total = Counter('ui_service_query_errors_total', 'Total number of search query errors')
+query_latency = Histogram('ui_service_query_latency_seconds', 'Time taken to process search queries')
 
 
-def start_metrics_server(port: int = 8000):
+def start_metrics_server(port: int = 8002):
     """
     Start Prometheus metrics server on the given port.
 

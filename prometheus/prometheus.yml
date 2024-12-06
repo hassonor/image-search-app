@@ -1,4 +1,3 @@
-# prometheus/prometheus.yml
 global:
   scrape_interval: 15s
 
@@ -6,6 +5,14 @@ scrape_configs:
   - job_name: 'downloader_service'
     static_configs:
       - targets: ['downloader:8000']
+
+  - job_name: 'embedding_generator'
+    static_configs:
+      - targets: ['embedding_generator:8001']
+
+  - job_name: 'ui_service'
+    static_configs:
+      - targets: ['ui:8002']
 
   - job_name: 'redis_exporter'
     static_configs:

@@ -3,7 +3,7 @@ import os
 import aiohttp
 import asyncio
 import hashlib
-from typing import Optional
+from typing import Optional, Tuple
 from pybloom_live import BloomFilter
 from config import settings
 from redis_client import redis_client
@@ -20,7 +20,7 @@ class DownloaderService:
         self.bloom = BloomFilter(capacity=settings.BLOOM_EXPECTED_ITEMS, error_rate=settings.BLOOM_ERROR_RATE)
         self.lock = asyncio.Lock()
 
-    async def download_image(self, url: str) -> Optional[str]:
+    async def download_image(self, url: str) -> Optional[Tuple[int, str]]:
         """
         Asynchronously download the image from the given URL and return the local file path.
         Checks Redis and Bloom filter for deduplication.
@@ -61,15 +61,21 @@ class DownloaderService:
                 duration = asyncio.get_event_loop().time() - start_time
                 download_latency.observe(duration)
 
-                await redis_client.cache_url_as_downloaded(url, local_path)
-                await database.store_image_record(url, local_path)
-                images_downloaded.inc()
+                image_id = await database.store_image_record(url, local_path)
+                if image_id:
+                    await redis_client.cache_url_as_downloaded(url, local_path)
+                    images_downloaded.inc()
 
-                async with self.lock:
-                    self.bloom.add(url)
+                    async with self.lock:
+                        self.bloom.add(url)
 
-                logger.info("Image downloaded and stored at: %s", local_path)
-                return local_path
+                    logger.info("Image downloaded and stored at: %s with ID: %s", local_path, image_id)
+                    image_path = local_path
+                    return image_id, image_path
+                else:
+                    download_errors.inc()
+                    logger.error("Failed to retrieve image ID for URL: %s", url)
+                    return None
 
         except aiohttp.ClientError as e:
             download_errors.inc()
