@@ -1,15 +1,34 @@
 import asyncio
 import signal
-
-from embedding_service import EmbeddingService
 from logging_config import logger
 from metrics import start_metrics_server, embeddings_generated, embedding_errors, embedding_latency
 from rabbitmq_client import rabbitmq_client
 from elasticsearch_client import elasticsearch_client
-
 from config import settings
+from embedding_service import EmbeddingService
 
-logger = logger  # From logging_config.py
+
+logger = logger  # Use existing logger from logging_config.py
+
+
+async def retry_connection(connect_coro, max_retries=5, delay=5, name="service"):
+    """
+    Attempts to run the `connect_coro` coroutine up to `max_retries` times,
+    waiting `delay` seconds between retries.
+    """
+    for attempt in range(1, max_retries + 1):
+        try:
+            logger.info(f"Trying to connect to {name} (attempt {attempt}/{max_retries})...")
+            await connect_coro()
+            logger.info(f"Successfully connected to {name}.")
+            return
+        except Exception as e:
+            logger.warning(f"Failed to connect to {name} (attempt {attempt}/{max_retries}): {e}")
+            if attempt < max_retries:
+                logger.info(f"Waiting {delay} seconds before retrying...")
+                await asyncio.sleep(delay)
+    logger.error(f"Could not connect to {name} after {max_retries} attempts.")
+    raise ConnectionError(f"Failed to connect to {name}")
 
 
 async def process_message(data: dict, embedding_service: EmbeddingService):
@@ -28,14 +47,14 @@ async def process_message(data: dict, embedding_service: EmbeddingService):
     if embedding:
         try:
             start_time = asyncio.get_event_loop().time()
-            await elasticsearch_client.index_embedding(image_id, image_url,image_path, embedding)
+            await elasticsearch_client.index_embedding(image_id, image_url, image_path, embedding)
             duration = asyncio.get_event_loop().time() - start_time
             embedding_latency.observe(duration)
             embeddings_generated.inc()
             logger.info(f"Processed and indexed embedding for image_id: {image_id}")
         except Exception as e:
             embedding_errors.inc()
-            logger.error(f"Failed to index embedding for image_id: {image_id}: {e}")
+            logger.error(f"Failed to index embedding for image_id {image_id}: {e}")
     else:
         embedding_errors.inc()
         logger.error(f"Failed to generate embedding for image_id: {image_id}")
@@ -47,24 +66,27 @@ async def main():
     """
     embedding_service = EmbeddingService()
     try:
-        # Initialize components
         await elasticsearch_client.create_index()
-        await rabbitmq_client.connect()
+
+        # Use retry logic for RabbitMQ connection
+        await retry_connection(rabbitmq_client.connect, name="RabbitMQ")
+
+        # Use retry logic for starting the consumer as well
+        await retry_connection(
+            lambda: rabbitmq_client.consume(settings.EMBEDDING_QUEUE, lambda data: process_message(data, embedding_service)),
+            name="RabbitMQ Consumer"
+        )
+
+        # Start metrics server after consumer is ready
         start_metrics_server(port=settings.METRICS_PORT)
 
-        # Start consuming messages
-        await rabbitmq_client.consume(settings.EMBEDDING_QUEUE, lambda data: process_message(data, embedding_service))
-
         logger.info("Embedding Generator Service is running and ready to process messages.")
-
-        # Keep the service running
         await asyncio.Event().wait()
     except asyncio.CancelledError:
         logger.info("Embedding Generator Service is shutting down.")
     except Exception as e:
         logger.exception(f"Service encountered an error: {e}")
     finally:
-        # Gracefully close connections
         if embedding_service.model:
             embedding_service.model.cpu()
         await elasticsearch_client.close()

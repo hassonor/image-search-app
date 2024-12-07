@@ -17,9 +17,6 @@ Pillow==9.4.0
 # Metrics
 prometheus_client==0.16.0
 
-# Retry Mechanism
-tenacity==8.2.2
-
 # Testing
 pytest==7.4.0
 pytest-mock==3.11.1

@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     # Downloader
     DOWNLOAD_TIMEOUT: int = Field(30, env="DOWNLOAD_TIMEOUT")
     USER_AGENT: str = Field("MyImageDownloader/1.0", env="USER_AGENT")
+    METRICS_PORT: int = Field(8000, env="METRICS_PORT")
 
     # File paths
     IMAGE_STORAGE_PATH: str = Field("/app/images", env="IMAGE_STORAGE_PATH")

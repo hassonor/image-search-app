@@ -115,20 +115,19 @@ async def main():
         await retry_connection(rabbitmq_client.connect, name="RabbitMQ")
 
         # Start metrics server
-        start_metrics_server(port=8000)
-
-        # Publish URLs
-        urls_file = settings.URLS_FILE_PATH
-        await publish_urls(urls_file, rabbitmq_client, redis_client)
+        start_metrics_server(port=settings.METRICS_PORT)
 
         # Callback for message processing
         async def callback(url: str):
             await message_callback(url, downloader_service)
 
-        # Start consuming messages with retry logic if needed
-        # If you have a separate Elasticsearch connection step, also wrap it with retry_connection.
+        # Connect Consumer
         await retry_connection(lambda: rabbitmq_client.consume(settings.DOWNLOAD_QUEUE, callback),
                                name="RabbitMQ Consumer")
+
+        # Publish URLs
+        urls_file = settings.URLS_FILE_PATH
+        await publish_urls(urls_file, rabbitmq_client, redis_client)
 
         logger.info("Downloader service is running and ready to process messages.")
 

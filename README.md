@@ -1,6 +1,6 @@
 # Image Search Application
 
-## Setup and Installation
+## Setup and Installation (Tested On Win11)
 ### Prerequisites
 Ensure the following dependencies are installed on your machine:
 
@@ -11,11 +11,10 @@ Ensure the following dependencies are installed on your machine:
 
 
 1. Build and Start the Services
-Using Docker Compose, you can build and start all the necessary services (**PLEASE NOTE: First run will take about 10 minutes**)
-```bash 
-docker-compose up --build -d
-```
-
+Using Docker Compose, you can build and start all the necessary services (**PLEASE NOTE: First run will take about 10 minutes + Run One by One the order matters.**) 
+* Run the following script: `run_and_install.sh` On the sub folder: `./scripts/run_and_install.sh`.
+* If you want to clean all docker and downloaded images environment first run: `reset.sh` on the sub folder: `./scripts/reset.sh`
+   
 2. Access the Services
 * API Service: `http://localhost:8080`
 * Prometheus: `http://localhost:9090` (Username: `admin@admin.com`, Password: `admin`)
