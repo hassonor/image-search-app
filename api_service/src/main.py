@@ -69,7 +69,7 @@ async def get_image(query_string: str = Query(..., min_length=1)):
     except NotFoundError as e:
         query_errors_total.inc()
         logger.error("Elasticsearch NotFoundError: %s", e)
-        raise HTTPException(status_code=404, detail="Elasticsearch index not found.")
+        raise HTTPException(status_code=400, detail="Elasticsearch index not found.")
 
     except RequestError as e:
         query_errors_total.inc()
