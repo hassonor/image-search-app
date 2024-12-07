@@ -1,4 +1,4 @@
-import asyncio
+import os
 import signal
 from logging_config import logger
 from metrics import start_metrics_server
@@ -9,37 +9,25 @@ from database import database
 from config import settings
 import aio_pika
 import json
-import os
-
 import asyncio
-import time
-from logging_config import logger
-
+import aiofiles
 
 async def retry_connection(connect_coro, max_retries=5, delay=5, name="service"):
-    """
-    Attempts to run the `connect_coro` coroutine up to `max_retries` times,
-    waiting `delay` seconds between retries.
-    """
     for attempt in range(1, max_retries + 1):
         try:
-            logger.info(f"Trying to connect to {name} (attempt {attempt}/{max_retries})...")
+            logger.info(f"Connecting to {name} (attempt {attempt}/{max_retries})...")
             await connect_coro()
-            logger.info(f"Successfully connected to {name}.")
+            logger.info(f"Connected to {name}.")
             return
         except Exception as e:
-            logger.warning(f"Failed to connect to {name} (attempt {attempt}/{max_retries}): {e}")
+            logger.warning(f"Failed to connect to {name}: {e}")
             if attempt < max_retries:
-                logger.info(f"Waiting {delay} seconds before retrying...")
+                logger.info(f"Retrying in {delay} seconds...")
                 await asyncio.sleep(delay)
     logger.error(f"Could not connect to {name} after {max_retries} attempts.")
     raise ConnectionError(f"Failed to connect to {name}")
 
-
 async def publish_embeddings(image_id: int, image_url: str, image_path: str):
-    """
-    Publish a message to the image_embeddings queue with image_id and image_path.
-    """
     message = {
         "image_id": image_id,
         "image_url": image_url,
@@ -47,115 +35,98 @@ async def publish_embeddings(image_id: int, image_url: str, image_path: str):
     }
     try:
         await rabbitmq_client.publish(settings.EMBEDDING_QUEUE, json.dumps(message))
-        logger.info(f"Published embedding message for image_id: {image_id}")
+        logger.info(f"Published embedding for image_id: {image_id}")
     except Exception as e:
-        logger.exception(f"Failed to publish embedding message for image_id {image_id}: {e}")
+        logger.exception(f"Failed to publish embedding for image_id {image_id}: {e}")
 
-
-async def publish_urls(file_path: str, rabbitmq_client, redis_client):
+async def publish_urls(file_path: str):
     """
-    Read URLs from a file and publish them to RabbitMQ.
-    Skip URLs already processed or marked as not found.
+    Stream the file in chunks, check with Redis, and publish only URLs not processed.
     """
-    if not os.path.exists(file_path):
+    if not file_path or not os.path.exists(file_path):
         logger.error(f"URL file not found: {file_path}")
         return
 
-    with open(file_path, 'r') as f:
-        urls = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+    chunk_size = settings.URL_CHUNK_SIZE
+    urls_buffer = []
 
-    if not urls:
-        logger.warning("No URLs found to publish.")
+    async with aiofiles.open(file_path, 'r') as f:
+        async for line in f:
+            url = line.strip()
+            if not url or url.startswith('#'):
+                continue
+            urls_buffer.append(url)
+
+            if len(urls_buffer) >= chunk_size:
+                await process_and_publish_chunk(urls_buffer)
+                urls_buffer.clear()
+
+    # Process remaining URLs
+    if urls_buffer:
+        await process_and_publish_chunk(urls_buffer)
+
+async def process_and_publish_chunk(urls: list[str]):
+    # Filter URLs by checking Redis in bulk
+    urls_to_publish = await redis_client.check_urls_batch(urls)
+    if not urls_to_publish:
         return
 
-    logger.info(f"Publishing {len(urls)} URLs from {file_path} to RabbitMQ.")
-
-    for url in urls:
-        # Check Redis to prevent duplicate publishing
-        if await redis_client.is_url_downloaded(url) or await redis_client.is_url_marked_as_not_found(url):
-            logger.debug(f"URL already processed or marked as not found: {url}, skipping.")
-            continue
-
-        try:
-            message = aio_pika.Message(body=json.dumps({"url": url}).encode())
-            await rabbitmq_client.channel.default_exchange.publish(
-                message, routing_key=settings.DOWNLOAD_QUEUE
-            )
-            logger.info(f"Published URL: {url}")
-        except Exception as e:
-            logger.exception(f"Failed to publish URL {url}: {e}")
-
-    logger.info("Completed publishing URLs.")
-
+    logger.info(f"Publishing {len(urls_to_publish)} URLs to queue.")
+    # Publish asynchronously to RabbitMQ
+    for url in urls_to_publish:
+        message = aio_pika.Message(body=json.dumps({"url": url}).encode())
+        await rabbitmq_client.channel.default_exchange.publish(
+            message, routing_key=settings.DOWNLOAD_QUEUE
+        )
+    logger.info("Chunk published.")
 
 async def process_url(image_url: str, downloader_service: DownloaderService):
-    """
-    Callback function to process a single URL.
-    """
-    logger.debug(f"Processing URL: {image_url}")
     result = await downloader_service.download_image(image_url)
     if result:
         image_id, image_path = result
         await publish_embeddings(image_id, image_url, image_path)
 
-
 async def message_callback(url: str, downloader_service: DownloaderService):
-    """
-    Wrapper callback to process the URL.
-    """
     await process_url(url, downloader_service)
-
 
 async def main():
     downloader_service = DownloaderService()
     try:
-        # Initialize components with retries
         await retry_connection(database.connect, name="PostgreSQL")
         await retry_connection(redis_client.connect, name="Redis")
         await retry_connection(rabbitmq_client.connect, name="RabbitMQ")
 
-        # Start metrics server
         start_metrics_server(port=settings.METRICS_PORT)
 
-        # Callback for message processing
         async def callback(url: str):
             await message_callback(url, downloader_service)
 
-        # Connect Consumer
+        # Setup consumer
         await retry_connection(lambda: rabbitmq_client.consume(settings.DOWNLOAD_QUEUE, callback),
                                name="RabbitMQ Consumer")
 
-        # Publish URLs
-        urls_file = settings.URLS_FILE_PATH
-        await publish_urls(urls_file, rabbitmq_client, redis_client)
+        # Publish URLs from file in a streaming, chunked manner
+        await publish_urls(settings.URLS_FILE_PATH)
 
         logger.info("Downloader service is running and ready to process messages.")
-
         await asyncio.Event().wait()
     except asyncio.CancelledError:
         logger.info("Downloader service is shutting down.")
     except Exception as e:
-        logger.exception(f"Service encountered an error: {e}")
+        logger.exception(f"Service error: {e}")
     finally:
-        # Gracefully close connections
         await downloader_service.close()
         await rabbitmq_client.close()
         await redis_client.close()
         await database.close()
 
-
 def shutdown():
-    """
-    Handle shutdown signals.
-    """
     logger.info("Shutdown signal received. Stopping service...")
     for task in asyncio.all_tasks():
         task.cancel()
 
-
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
-
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, shutdown)
 

@@ -1,6 +1,5 @@
 from pydantic import BaseSettings, Field
 
-
 class Settings(BaseSettings):
     # Logging
     LOG_LEVEL: str = Field("INFO", env="LOG_LEVEL")
@@ -42,9 +41,11 @@ class Settings(BaseSettings):
     # Embedding Queue
     EMBEDDING_QUEUE: str = Field("image_embeddings", env="EMBEDDING_QUEUE")
 
+    # New: Chunk size for file reading
+    URL_CHUNK_SIZE: int = Field(10_000, env="URL_CHUNK_SIZE")
+
     class Config:
         env_file = ".env"
         case_sensitive = True
-
 
 settings = Settings()
