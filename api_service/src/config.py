@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     ELASTICSEARCH_HOST: str = Field("elasticsearch", env="ELASTICSEARCH_HOST")
     ELASTICSEARCH_PORT: int = Field(9200, env="ELASTICSEARCH_PORT")
     ELASTICSEARCH_INDEX: str = Field("image_embeddings", env="ELASTICSEARCH_INDEX")
-
+    TOP_K_VALUE: int = Field(50, env="TOP_K_VALUE")
     # Embedding Model Settings
     EMBEDDING_MODEL: str = Field("ViT-B/32", env="EMBEDDING_MODEL")
 

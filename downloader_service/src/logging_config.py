@@ -1,3 +1,10 @@
+"""
+Logging configuration module.
+
+This module sets up the logging based on environment settings and outputs
+logs to stdout with the specified log level and format.
+"""
+
 import logging
 from config import settings
 

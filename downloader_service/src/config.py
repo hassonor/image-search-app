@@ -1,7 +1,48 @@
+"""
+Configuration module for the Downloader Service.
+
+This module defines configuration settings using Pydantic's BaseSettings
+to load values from environment variables. These settings include
+logging preferences, database credentials, Redis configuration,
+RabbitMQ connection details, and parameters related to the download process.
+"""
+
 from pydantic import BaseSettings, Field
 
+
 class Settings(BaseSettings):
-    # Logging
+    """
+    Settings class for the downloader service.
+
+    Attributes:
+        LOG_LEVEL (str): The log level (e.g., INFO, DEBUG).
+        LOG_FORMAT (str): The log formatting string.
+        PG_HOST (str): PostgreSQL host.
+        PG_PORT (int): PostgreSQL port.
+        PG_USER (str): PostgreSQL username.
+        PG_PASSWORD (str): PostgreSQL password.
+        PG_DATABASE (str): PostgreSQL database name.
+        REDIS_HOST (str): Redis host.
+        REDIS_PORT (int): Redis port.
+        REDIS_DB (int): Redis database number.
+        RABBITMQ_HOST (str): RabbitMQ host.
+        RABBITMQ_PORT (int): RabbitMQ port.
+        RABBITMQ_USER (str): RabbitMQ username.
+        RABBITMQ_PASSWORD (str): RabbitMQ password.
+        DOWNLOAD_QUEUE (str): RabbitMQ queue for image downloads.
+        DOWNLOAD_TIMEOUT (int): HTTP timeout for image downloads.
+        USER_AGENT (str): User-Agent string for HTTP requests.
+        METRICS_PORT (int): Port for Prometheus metrics.
+        IMAGE_STORAGE_PATH (str): Local path to store downloaded images.
+        URLS_FILE_PATH (str): Path to the file containing URLs.
+        BLOOM_EXPECTED_ITEMS (int): Expected items for Bloom filter capacity.
+        BLOOM_ERROR_RATE (float): Acceptable error rate for Bloom filter.
+        NUM_CONSUMERS (int): Number of consumers for RabbitMQ.
+        EMBEDDING_QUEUE (str): RabbitMQ queue for embedding service.
+        URL_CHUNK_SIZE (int): Number of URLs to batch-process before publishing.
+
+    """
+
     LOG_LEVEL: str = Field("INFO", env="LOG_LEVEL")
     LOG_FORMAT: str = Field("%(asctime)s [%(levelname)s] %(name)s: %(message)s", env="LOG_FORMAT")
 
@@ -45,6 +86,7 @@ class Settings(BaseSettings):
     URL_CHUNK_SIZE: int = Field(10_000, env="URL_CHUNK_SIZE")
 
     class Config:
+        """Config for settings."""
         env_file = ".env"
         case_sensitive = True
 

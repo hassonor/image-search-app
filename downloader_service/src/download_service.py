@@ -1,3 +1,12 @@
+"""
+Downloader Service module.
+
+This service handles the download of images from provided URLs.
+It uses an asynchronous HTTP client (aiohttp) with a specified timeout,
+checks a Bloom filter and Redis caches to prevent duplicates, and
+stores downloaded images in a local directory. It also logs download metrics.
+"""
+
 import logging
 import os
 import aiohttp
@@ -13,17 +22,28 @@ from metrics import images_downloaded, download_errors, download_latency
 logger = logging.getLogger(__name__)
 
 class DownloaderService:
-    """Service to handle downloading images from URLs."""
+    """
+    Service to handle downloading images from URLs.
+
+    This service ensures that each URL is downloaded once by using a Bloom filter,
+    Redis caching, and distributed locks. Downloaded images are persisted locally,
+    and records are stored in PostgreSQL.
+    """
 
     def __init__(self):
+        """
+        Initialize the DownloaderService with an HTTP session and Bloom filter.
+        """
         self.session = aiohttp.ClientSession(headers={"User-Agent": settings.USER_AGENT})
         self.bloom = BloomFilter(capacity=settings.BLOOM_EXPECTED_ITEMS, error_rate=settings.BLOOM_ERROR_RATE)
         self.lock = asyncio.Lock()
 
     async def download_image(self, url: str) -> Optional[Tuple[int, str]]:
         """
-        Asynchronously download the image from the given URL and return the local file path.
-        Checks Redis, Bloom filter, and a distributed lock for deduplication.
+        Asynchronously download the image from the given URL and return the (image_id, file_path).
+
+        This method checks Redis and the Bloom filter to skip duplicates,
+        and uses a distributed lock in Redis to prevent concurrent downloads of the same URL.
         """
         # Acquire a distributed lock to prevent concurrent downloads of the same URL
         acquired = await redis_client.acquire_download_lock(url)
@@ -99,7 +119,7 @@ class DownloaderService:
     @staticmethod
     def generate_filename(url: str, response: aiohttp.ClientResponse) -> str:
         """
-        Generate a unique filename for the downloaded image.
+        Generate a unique filename for the downloaded image based on the URL's hash.
         """
         url_hash = hashlib.sha256(url.encode()).hexdigest()
         extension = os.path.splitext(url.split("?")[0])[1] or ".jpg"

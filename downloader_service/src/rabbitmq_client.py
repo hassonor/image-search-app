@@ -1,3 +1,9 @@
+"""
+RabbitMQ client for the Downloader Service.
+
+This module manages connections to RabbitMQ and provides methods to
+consume messages from a queue and publish messages to a specified queue.
+"""
 import logging
 import aio_pika
 import asyncio
@@ -33,6 +39,10 @@ class RabbitMQClient:
     async def consume(self, queue_name: str, callback: Callable[[str], asyncio.Future]):
         """
         Asynchronously consume messages from the given queue and process them using the callback.
+
+        Args:
+            queue_name (str): The name of the RabbitMQ queue.
+            callback (Callable[[str], asyncio.Future]): The callback function to process the message data.
         """
         try:
             queue = await self.channel.declare_queue(queue_name, durable=True)
@@ -43,6 +53,9 @@ class RabbitMQClient:
             raise
 
     def _create_on_message(self, callback: Callable[[str], asyncio.Future]):
+        """
+        Create an on_message handler to be invoked when a new message arrives.
+        """
         async def on_message(message: aio_pika.IncomingMessage):
             async with message.process():
                 try:
@@ -61,7 +74,13 @@ class RabbitMQClient:
         return on_message
 
     async def publish(self, queue_name: str, message: str):
-        """Asynchronously publish a message to the specified RabbitMQ queue."""
+        """
+        Asynchronously publish a message to the specified RabbitMQ queue.
+
+        Args:
+            queue_name (str): The name of the RabbitMQ queue.
+            message (str): The message body as a JSON string.
+        """
         try:
             queue = await self.channel.declare_queue(queue_name, durable=True)
             await self.channel.default_exchange.publish(

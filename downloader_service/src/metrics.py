@@ -1,3 +1,11 @@
+"""
+Metrics module for the Downloader Service.
+
+This module defines Prometheus metrics for tracking the number of images downloaded,
+errors occurred, and download latency. It also provides a function to start
+the metrics server.
+"""
+
 from prometheus_client import Counter, Histogram, start_http_server
 import logging
 
@@ -14,7 +22,7 @@ def start_metrics_server(port: int = 8000):
     Start Prometheus metrics server on the given port.
 
     Args:
-        port (int): Port number to start the metrics server on.
+        port (int): Port number for the metrics server.
     """
     try:
         start_http_server(port)

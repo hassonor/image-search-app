@@ -1,3 +1,11 @@
+"""
+Database module for the Downloader Service.
+
+This module manages PostgreSQL database connections using asyncpg.
+It initializes the database schema (images table) and provides a method
+to store image records.
+"""
+
 import logging
 from typing import Optional
 import asyncpg
@@ -9,10 +17,14 @@ class Database:
     """PostgreSQL database handler with connection pooling."""
 
     def __init__(self):
+        """Initialize the database pool attribute."""
         self.pool: Optional[asyncpg.pool.Pool] = None
 
     async def connect(self):
-        """Establish a connection pool to the PostgreSQL database."""
+        """
+        Establish a connection pool to the PostgreSQL database.
+        On success, initialize the database.
+        """
         try:
             self.pool = await asyncpg.create_pool(
                 user=settings.PG_USER,
@@ -44,7 +56,10 @@ class Database:
             logger.info("Database initialized and ready.")
 
     async def store_image_record(self, url: str, file_path: str) -> Optional[int]:
-        """Store a record of the downloaded image in PostgreSQL and return the image ID."""
+        """
+        Store a record of the downloaded image in PostgreSQL and return the image ID.
+        If the URL already exists, retrieve its ID instead of creating a new record.
+        """
         insert_query = """
             INSERT INTO images (url, file_path) VALUES ($1, $2)
             ON CONFLICT (url) DO NOTHING
