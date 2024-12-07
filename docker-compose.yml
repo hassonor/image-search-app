@@ -89,6 +89,7 @@ services:
     volumes:
       - ./shared_volume/images:/app/images
     depends_on:
+      - downloader
       - elasticsearch
       - postgres
       - redis

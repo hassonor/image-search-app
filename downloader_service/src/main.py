@@ -11,6 +11,30 @@ import aio_pika
 import json
 import os
 
+import asyncio
+import time
+from logging_config import logger
+
+
+async def retry_connection(connect_coro, max_retries=5, delay=5, name="service"):
+    """
+    Attempts to run the `connect_coro` coroutine up to `max_retries` times,
+    waiting `delay` seconds between retries.
+    """
+    for attempt in range(1, max_retries + 1):
+        try:
+            logger.info(f"Trying to connect to {name} (attempt {attempt}/{max_retries})...")
+            await connect_coro()
+            logger.info(f"Successfully connected to {name}.")
+            return
+        except Exception as e:
+            logger.warning(f"Failed to connect to {name} (attempt {attempt}/{max_retries}): {e}")
+            if attempt < max_retries:
+                logger.info(f"Waiting {delay} seconds before retrying...")
+                await asyncio.sleep(delay)
+    logger.error(f"Could not connect to {name} after {max_retries} attempts.")
+    raise ConnectionError(f"Failed to connect to {name}")
+
 
 async def publish_embeddings(image_id: int, image_url: str, image_path: str):
     """
@@ -83,33 +107,31 @@ async def message_callback(url: str, downloader_service: DownloaderService):
 
 
 async def main():
-    """
-    Main entry point for the downloader service.
-    """
     downloader_service = DownloaderService()
     try:
-        # Initialize components
-        await database.connect()
-        await redis_client.connect()
-        await rabbitmq_client.connect()
+        # Initialize components with retries
+        await retry_connection(database.connect, name="PostgreSQL")
+        await retry_connection(redis_client.connect, name="Redis")
+        await retry_connection(rabbitmq_client.connect, name="RabbitMQ")
+
+        # Start metrics server
         start_metrics_server(port=8000)
 
-        # Path to the URLs file inside the container
+        # Publish URLs
         urls_file = settings.URLS_FILE_PATH
-
-        # Publish URLs from the file
         await publish_urls(urls_file, rabbitmq_client, redis_client)
 
-        # Define the actual callback with downloader_service
+        # Callback for message processing
         async def callback(url: str):
             await message_callback(url, downloader_service)
 
-        # Start consuming messages
-        await rabbitmq_client.consume(settings.DOWNLOAD_QUEUE, callback)
+        # Start consuming messages with retry logic if needed
+        # If you have a separate Elasticsearch connection step, also wrap it with retry_connection.
+        await retry_connection(lambda: rabbitmq_client.consume(settings.DOWNLOAD_QUEUE, callback),
+                               name="RabbitMQ Consumer")
 
         logger.info("Downloader service is running and ready to process messages.")
 
-        # Keep the service running
         await asyncio.Event().wait()
     except asyncio.CancelledError:
         logger.info("Downloader service is shutting down.")
