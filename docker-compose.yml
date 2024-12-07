@@ -119,9 +119,9 @@ services:
       timeout: 10s
       retries: 5
 
-  ui:
+  api:
     build:
-      context: ./ui_service
+      context: api_service
       dockerfile: Dockerfile
     env_file:
       - .env
@@ -129,7 +129,7 @@ services:
       - embedding_generator
       - elasticsearch
     ports:
-      - "8080:8080"  # UI/API
+      - "8080:8080"  # API
       - "8002:8002"  # Metrics
 
 
@@ -144,7 +144,7 @@ services:
     depends_on:
       - downloader
       - embedding_generator
-      - ui
+      - api
 
   grafana:
     image: grafana/grafana:latest

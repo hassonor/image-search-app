@@ -161,3 +161,27 @@ Returns a list of images matching the query with their URLs and similarity score
   }
 ]
 `
++---------------------+       +--------------------------+
+|   Downloader        |       |   Embedding Generator    |
+|   Service           |-----> |   Service                |
+|  (Service)          |       |  (Service)               |
++---------------------+       +--------------------------+
+         |                            |
+         V                            V
++---------------------+        +----------------------+
+|   PostgreSQL        |        |    Elasticsearch     |
+|  (Database)         |        |    (Database)        |
++---------------------+        +----------------------+
+         |                            |
+         V                            V
++---------------------+        +----------------------+
+|   Redis             |        |   Prometheus         |
+|  (Cache)            |        |   (Monitoring)       |
++---------------------+        +----------------------+
+                              |
+                              V
+                          +----------------------+
+                          |   Grafana            |
+                          |   (Visualization)    |
+                          +----------------------+
+

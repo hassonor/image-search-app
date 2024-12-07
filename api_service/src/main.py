@@ -1,4 +1,6 @@
 import asyncio
+
+from elasticsearch import NotFoundError, RequestError
 from fastapi import FastAPI, HTTPException, Query, Response
 from pydantic import BaseModel
 from typing import List
@@ -64,6 +66,16 @@ async def get_image(query_string: str = Query(..., min_length=1)):
         query_errors_total.inc()
         logger.error("HTTPException: %s", he.detail)
         raise he
+    except NotFoundError as e:
+        query_errors_total.inc()
+        logger.error("Elasticsearch NotFoundError: %s", e)
+        raise HTTPException(status_code=404, detail="Elasticsearch index not found.")
+
+    except RequestError as e:
+        query_errors_total.inc()
+        logger.error("Elasticsearch RequestError: %s", e)
+        raise HTTPException(status_code=400, detail="Bad request to Elasticsearch.")
+
     except Exception as e:
         query_errors_total.inc()
         logger.exception("Unexpected error during search: %s", e)

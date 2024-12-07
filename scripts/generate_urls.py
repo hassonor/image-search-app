@@ -1,6 +1,6 @@
 # Python script to generate 50,000 image URLs and save them to a file
 base_url = "http://images.cocodataset.org/train2017/"
-file_name = "image_urls.txt"
+file_name = "../image_urls.txt"
 
 with open(file_name, "a") as file:
     for i in range(1, 50001):

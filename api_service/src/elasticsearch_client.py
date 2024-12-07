@@ -46,8 +46,14 @@ class ElasticsearchClient:
                 })
             logger.debug("Elasticsearch search returned %d results.", len(results))
             return results
-        except exceptions.ElasticsearchException as e:
-            logger.exception("Elasticsearch search failed: %s", e)
+        except exceptions.NotFoundError as e:
+            logger.exception("Elasticsearch search failed: Index not found. %s", e)
+            return []
+        except exceptions.RequestError as e:
+            logger.exception("Elasticsearch request failed: %s", e)
+            return []
+        except Exception as e:
+            logger.exception("An unexpected error occurred during search: %s", e)
             return []
 
     async def close(self):

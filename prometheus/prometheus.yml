@@ -10,9 +10,9 @@ scrape_configs:
     static_configs:
       - targets: ['embedding_generator:8001']
 
-  - job_name: 'ui_service'
+  - job_name: 'api_service'
     static_configs:
-      - targets: ['ui:8002']
+      - targets: ['api:8002']
 
   - job_name: 'redis_exporter'
     static_configs:
