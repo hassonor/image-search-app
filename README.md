@@ -16,6 +16,8 @@ Using Docker Compose, you can build and start all the necessary services (**PLEA
 * If you want to clean all docker and downloaded images environment first run: `reset.sh` on the sub folder: `./scripts/reset.sh`
    
 2. Access the Services
+* **Frontend (React)**: http://localhost:3030
+Dark mode is default. You can toggle to light mode using the icon in the header. Use the search bar to query images.
 * API Service: `http://localhost:8080`
 * Prometheus: `http://localhost:9090` (Username: `admin@admin.com`, Password: `admin`)
 * Grafana: `http://localhost:3000` (Username: `admin`, Password: `newpassword`)
@@ -30,8 +32,9 @@ Using Docker Compose, you can build and start all the necessary services (**PLEA
     * Go to `Connection` Tab
     * Host Name: `postgres`, Maintenance database: `mydb`, Username: `myuser`, Password: `mypassword`
 
-3. Test the Application 
-Use the API to test the image search functionality by sending queries to the `GET /get_image` endpoint.
+3. Test the Application
+* Navigate to: `http://localhost:3030` and search by Text.
+* Use the API to test the image search functionality by sending queries to the `GET /get_image` endpoint.
 Example:
 ```bash
 curl "http://localhost:8080/get_image?query_string=beautiful+landscape" 
@@ -49,7 +52,7 @@ for system performance and metrics visualization.
 
 ## Architecture
 The application leverages several microservices, including:
-
+### Backend Services:
 * **API Service (FastAPI)**: 
 Handles user queries, metrics collection, and Elasticsearch search for similar images.
 * **Downloader Service:** Manages the downloading and storage of images, utilizing a RabbitMQ
@@ -60,14 +63,19 @@ queue for task distribution.
 * **Elasticsearch:** Stores image embeddings and allows efficient querying based on cosine similarity for image search.
 * **Postgres:** Stores image metadata, including URL and download information.
 * **Prometheus** and Grafana: Collect and visualize system metrics for monitoring.
+### Frontend Service:
 
+* **React Frontend**: A user-friendly interface allowing searches, displaying images, navigating results, toggling dark/light mode, and viewing images in a modal.
+### Monitoring and Observability:
+* Prometheus & Grafana: Integrated to provide real-time metrics and dashboards for the entire system (API latency, queue length, embedding generation times, etc.).
 
-## Features
+## Key Features
 * **Real-time Image Search:** Search for images based on text descriptions with the ability to retrieve the most relevant images based on embeddings.
 * **Metrics and Monitoring:** Exposes Prometheus metrics and integrates with Grafana for real-time monitoring and visualization of system health.
 * **Scalable and Asynchronous Processing:** Uses RabbitMQ for distributed task processing, making the image downloading and embedding generation scalable and efficient.
 * **Caching:** Redis-based Bloom Filter to prevent redundant downloads and ensure optimal performance.
 * **Dockerized Services:** All services are containerized using Docker, making it easy to deploy and manage the application.
+* **Frontend**: Responsive, dark-mode-enabled frontend (React + TS) with image modal view, pagination, and theme toggle.
 
 ## Metrics
 Prometheus will scrape metrics from the services, including:

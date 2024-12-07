@@ -152,8 +152,8 @@ services:
     ports:
       - "3000:3000"
     volumes:
+      - ./grafana/grafana.ini:/etc/grafana/grafana.ini
       - ./grafana/provisioning:/etc/grafana/provisioning
-      - ./grafana/dashboards:/var/lib/grafana/dashboards
     depends_on:
       - prometheus
     networks:
@@ -204,6 +204,17 @@ services:
       - "9187:9187"
     depends_on:
       - postgres
+    networks:
+      - my_network
+
+  frontend:
+    build: ./frontend_service
+    environment:
+      REACT_APP_API_BASE_URL: http://api:8080
+    ports:
+      - "3030:80"
+    depends_on:
+      - api
     networks:
       - my_network
 

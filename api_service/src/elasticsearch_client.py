@@ -37,7 +37,7 @@ class ElasticsearchClient:
             for hit in hits:
                 score = hit['_score']
                 source = hit['_source']
-                print(source)
+
                 results.append({
                     "image_id": source.get("image_id"),
                     "image_url": source.get("image_url"),

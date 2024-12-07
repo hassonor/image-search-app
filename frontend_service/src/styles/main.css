@@ -1,0 +1,8 @@
+body, html {
+  margin: 0;
+  padding: 0;
+  font-family: sans-serif;
+}
+
+/* Additional global styles can go here. */
+/* Dark mode background will be handled by MUI theme. */
