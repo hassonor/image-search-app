@@ -50,7 +50,7 @@ async def get_image(query_string: str = Query(..., min_length=1)):
         query_latency.observe(search_time)
 
         if not results:
-            raise HTTPException(status_code=404, detail="No images found matching the query.")
+            raise HTTPException(status_code=200, detail="No images found matching the query.")
 
         response = [
             SearchResult(
