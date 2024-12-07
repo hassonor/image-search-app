@@ -12,7 +12,7 @@ import json
 import asyncio
 import aiofiles
 
-async def retry_connection(connect_coro, max_retries=5, delay=5, name="service"):
+async def retry_connection(connect_coro, max_retries=7, delay=10, name="service"):
     for attempt in range(1, max_retries + 1):
         try:
             logger.info(f"Connecting to {name} (attempt {attempt}/{max_retries})...")

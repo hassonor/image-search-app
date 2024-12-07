@@ -11,7 +11,7 @@ from embedding_service import EmbeddingService
 logger = logger  # Use existing logger from logging_config.py
 
 
-async def retry_connection(connect_coro, max_retries=5, delay=5, name="service"):
+async def retry_connection(connect_coro, max_retries=7, delay=10, name="service"):
     """
     Attempts to run the `connect_coro` coroutine up to `max_retries` times,
     waiting `delay` seconds between retries.
