@@ -1,187 +1,97 @@
 # Image Search Application
 
-## Overview
+## Setup and Installation
+### Prerequisites
+Ensure the following dependencies are installed on your machine:
 
-The Image Search Application allows users to search for images based on textual queries. It processes a dataset of image URLs, generates embeddings for each image using a pre-trained model, indexes these embeddings in Elasticsearch, and provides a user interface for searching and displaying relevant images.
+* **Docker**
+* **Docker Compose**
+* **Python 3.7+**
+* **RabbitMQ, Redis, Elasticsearch, Postgres, Prometheus, Grafana (via Docker Compose)**
+
+
+1. Build and Start the Services
+Using Docker Compose, you can build and start all the necessary services (**PLEASE NOTE: First run will take about 10 minutes**)
+```bash 
+docker-compose up --build -d
+```
+
+2. Access the Services
+* API Service: `http://localhost:8080`
+* Prometheus: `http://localhost:9090` (Username: `admin@admin.com`, Password: `admin`)
+* Grafana: `http://localhost:3000` (Username: `admin`, Password: `newpassword`)
+* RabbitMQ UI Management: `http://localhost:15672` (Username: `guest`, Password: `guest`)
+* RedisCommander (View Redis): `http://localhost:8081/`
+* PgAdmin (View PostgreSQL): `` (Username: `admin@admin.com`, password: `admin`) 
+  * First Login need to add the db: 
+    * Right click on mouse when focus `Servers`
+    * Register
+    * Server
+    * Add Server Name: e.g. `Images`
+    * Go to `Connection` Tab
+    * Host Name: `postgres`, Maintenance database: `mydb`, Username: `myuser`, Password: `mypassword`
+
+3. Test the Application 
+Use the API to test the image search functionality by sending queries to the `GET /get_image` endpoint.
+Example:
+```bash
+curl "http://localhost:8080/get_image?query_string=beautiful+landscape" 
+```
+
+
+## Overview
+**The Image Search Application** is a powerful solution that provides users the
+ability to search for images based on text queries.
+The application utilizes advanced embedding generation techniques, 
+integrates multiple services for efficient image retrieval, 
+and supports real-time data processing with asynchronous services. 
+It includes robust monitoring with **Prometheus** and **Grafana** 
+for system performance and metrics visualization.
 
 ## Architecture
+The application leverages several microservices, including:
 
-![Architecture Diagram](./docs/architecture_diagram.png)
-
-## Components
-
-1. **Image Downloader Service:** Downloads images from provided URLs and stores them in a shared volume. Publishes messages to RabbitMQ indicating new images are ready for embedding generation.
-
-2. **Embedding Generator Service:** Consumes messages from RabbitMQ, generates embeddings using CLIP, and indexes them in Elasticsearch.
-
-3. **Elasticsearch Service:** Acts as the vector database, storing and indexing embedding vectors for efficient similarity searches.
-
-4. **User Interface Service:** Provides an API for users to input search queries, converts them into embeddings, queries Elasticsearch, and returns relevant image URLs.
-
-5. **Monitoring Services:** Prometheus and Grafana are set up for comprehensive monitoring and visualization of metrics.
-
-## Getting Started
-
-### Prerequisites
-
-- **Docker:** Ensure Docker is installed on your machine.
-- **Docker Compose:** Install Docker Compose for orchestrating multi-container Docker applications.
-
-### Setup Instructions
-
-1. **Clone the Repository:**
-
-   ```bash
-   git clone https://github.com/yourusername/image-search-app.git
-   cd image-search-app
-
-2. Environment Configuration:
-
-Create a .env file in the root directory with the following content:
-```bash 
-# Logging
-LOG_LEVEL=INFO
-LOG_FORMAT=%(asctime)s [%(levelname)s] %(name)s: %(message)s
-
-# Downloader Settings
-DOWNLOAD_TIMEOUT=30
-USER_AGENT=MyImageDownloader/1.0
-BLOOM_EXPECTED_ITEMS=10000000
-BLOOM_ERROR_RATE=0.0001
-NUM_CONSUMERS=4
-
-# PostgreSQL Settings
-PG_USER=myuser
-PG_PASSWORD=mypassword
-PG_DATABASE=mydb
-PG_HOST=postgres
-PG_PORT=5432
-
-# Redis Settings
-REDIS_HOST=redis
-REDIS_PORT=6379
-REDIS_DB=0
-
-# RabbitMQ Settings
-RABBITMQ_HOST=rabbitmq
-RABBITMQ_PORT=5672
-RABBITMQ_USER=guest
-RABBITMQ_PASSWORD=guest
-
-# Queue Names
-DOWNLOAD_QUEUE=image_downloads
-EMBEDDING_QUEUE=image_embeddings
-
-# Storage Paths
-IMAGE_STORAGE_PATH=/app/images
-```
-Note: Adjust the environment variables as needed, especially passwords and host configurations.
-
-3. Prepare Image URLs:
-
-* Place your image URLs in downloader_service/image_urls.txt. Each URL should be on a separate line.
-
-4. Build and Start Services:
-`docker-compose up --build`
-
-* Note: This command builds the Docker images and starts all services defined in docker-compose.yml.
-
-5. Access Services:
-
-RabbitMQ Management UI: http://localhost:15672
-
-Username: guest
-Password: guest
-Prometheus Metrics: http://localhost:9090
-
-Grafana Dashboard: http://localhost:3000
-
-Username: admin
-Password: newpassword (as set in docker-compose.yml)
-User Interface/API Service: http://localhost:8080
-
-PgAdmin: http://localhost:5050
-
-Email: admin@admin.com
-Password: admin
-
-6. Testing the workflow:
-7. Testing the Workflow:
-
-Image Downloading:
-
-Ensure that the Downloader Service is consuming URLs from image_urls.txt and downloading images to shared_volume/images/.
-Embedding Generation:
-
-After images are downloaded, the Embedding Generator Service consumes messages from RabbitMQ, generates embeddings, and indexes them in Elasticsearch.
-Search Queries:
-
-Use the User Interface Service to input search queries and retrieve relevant images.
+* **API Service (FastAPI)**: 
+Handles user queries, metrics collection, and Elasticsearch search for similar images.
+* **Downloader Service:** Manages the downloading and storage of images, utilizing a RabbitMQ
+queue for task distribution.
+* **Embedding Generator Service:** Generates and indexes image embeddings using CLIP-based models.
+* **RabbitMQ:** Facilitates communication between services with two primary queues - one for image downloads and one for embedding generation.
+* **Redis:** Caches previously seen URLs for deduplication purposes.
+* **Elasticsearch:** Stores image embeddings and allows efficient querying based on cosine similarity for image search.
+* **Postgres:** Stores image metadata, including URL and download information.
+* **Prometheus** and Grafana: Collect and visualize system metrics for monitoring.
 
 
-API Endpoints
-1. Get Image by Query
-Endpoint: GET /get_image
+## Features
+* **Real-time Image Search:** Search for images based on text descriptions with the ability to retrieve the most relevant images based on embeddings.
+* **Metrics and Monitoring:** Exposes Prometheus metrics and integrates with Grafana for real-time monitoring and visualization of system health.
+* **Scalable and Asynchronous Processing:** Uses RabbitMQ for distributed task processing, making the image downloading and embedding generation scalable and efficient.
+* **Caching:** Redis-based Bloom Filter to prevent redundant downloads and ensure optimal performance.
+* **Dockerized Services:** All services are containerized using Docker, making it easy to deploy and manage the application.
 
-Parameters:
+## Metrics
+Prometheus will scrape metrics from the services, including:
 
-query_string (string): The textual query to search for images.
-Response:
+* **API Service metrics**
+* **Downloader Service metrics**
+* **Embedding Generator metrics**
+* **Elasticsearch metrics**
+* **Postgres metrics**
+* **Redis metrics**
 
-Returns a list of images matching the query with their URLs and similarity scores.
-* Example Request:
-`curl "http://localhost:8080/get_image?query_string=Bathroom"`
+These metrics can be visualized in **Grafana**, where you can create dashboards to monitor system health, performance, and resource usage.
 
+## Docker Compose Services
+The following services are defined in `docker-compose.yml`:
 
-* Example Request:
-`[
-  {
-    "image_id": 1,
-    "image_url": "/app/images/cca2fd83a06cee9f3d4c798e5ea9a20a458b837c8a6adba061aca3f5101c1e3c.jpg",
-    "score": 1.95
-  },
-  {
-    "image_id": 2,
-    "image_url": "/app/images/bb3a4f1d0f3b9f4c7e8a9b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8g9h0i1j2.jpg",
-    "score": 1.85
-  }
-]
-`
-* Example Response:
-`[
-  {
-    "image_id": 1,
-    "image_url": "/app/images/cca2fd83a06cee9f3d4c798e5ea9a20a458b837c8a6adba061aca3f5101c1e3c.jpg",
-    "score": 1.95
-  },
-  {
-    "image_id": 2,
-    "image_url": "/app/images/bb3a4f1d0f3b9f4c7e8a9b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8g9h0i1j2.jpg",
-    "score": 1.85
-  }
-]
-`
-+---------------------+       +--------------------------+
-|   Downloader        |       |   Embedding Generator    |
-|   Service           |-----> |   Service                |
-|  (Service)          |       |  (Service)               |
-+---------------------+       +--------------------------+
-         |                            |
-         V                            V
-+---------------------+        +----------------------+
-|   PostgreSQL        |        |    Elasticsearch     |
-|  (Database)         |        |    (Database)        |
-+---------------------+        +----------------------+
-         |                            |
-         V                            V
-+---------------------+        +----------------------+
-|   Redis             |        |   Prometheus         |
-|  (Cache)            |        |   (Monitoring)       |
-+---------------------+        +----------------------+
-                              |
-                              V
-                          +----------------------+
-                          |   Grafana            |
-                          |   (Visualization)    |
-                          +----------------------+
+* **api**: FastAPI service that serves the main application.
+* **downloader**: Asynchronous image downloader service.
+* **embedding_generator**: Embedding generation service based on the CLIP model.
+* **rabbitmq**: Message queue service for inter-service communication.
+* **elasticsearch**: Stores image embeddings.
+* **postgres**: Stores image metadata.
+* **redis**: Cache service for deduplication.
+* **prometheus**: Collects metrics from services.
+* **grafana**: Visualizes system metrics.
 
