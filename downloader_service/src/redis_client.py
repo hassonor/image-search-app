@@ -1,17 +1,21 @@
 """
-Redis client for the Downloader Service.
+Redis client module for handling URL caching, distributed locks, and batch checks.
 
-This module manages a Redis connection to track downloaded URLs, URLs not found,
-and provides distributed locking to prevent concurrent downloads of the same URL.
+Handles:
+- Check if a URL is already downloaded/not-found.
+- Acquire and release a distributed lock per URL to avoid duplicates.
+- Batch checking URLs to filter out already processed entries.
 """
+
+import logging
 import redis.asyncio as redis
 from config import settings
-import logging
+from typing import List
 
 logger = logging.getLogger(__name__)
 
 class RedisClient:
-    """Redis client for caching URLs and handling distributed locks."""
+    """Manages Redis caching and locking for URLs."""
     def __init__(self):
         self.redis = redis.Redis(
             host=settings.REDIS_HOST,
@@ -20,8 +24,8 @@ class RedisClient:
             decode_responses=True
         )
 
-    async def connect(self):
-        """Check connection to Redis by pinging it."""
+    async def connect(self) -> None:
+        """Check connection by pinging Redis."""
         try:
             await self.redis.ping()
             logger.info("Connected to Redis.")
@@ -30,45 +34,53 @@ class RedisClient:
             raise
 
     async def is_url_downloaded(self, url: str) -> bool:
-        """Check if the URL has already been downloaded."""
+        """Return True if the URL has already been downloaded."""
         key = f"downloaded:{url}"
         return (await self.redis.exists(key)) == 1
 
-    async def cache_url_as_downloaded(self, url: str, file_path: str):
-        """Cache the downloaded URL with its file path."""
+    async def cache_url_as_downloaded(self, url: str, file_path: str) -> None:
+        """Mark the URL as downloaded by caching its file path."""
         key = f"downloaded:{url}"
         await self.redis.set(key, file_path)
 
     async def is_url_marked_as_not_found(self, url: str) -> bool:
-        """Check if the URL is marked as not found."""
+        """Return True if the URL was previously marked as not found."""
         key = f"not_found:{url}"
         return (await self.redis.exists(key)) == 1
 
-    async def cache_url_as_not_found(self, url: str):
+    async def cache_url_as_not_found(self, url: str) -> None:
         """Cache the URL as not found."""
         key = f"not_found:{url}"
         await self.redis.set(key, "true")
 
-    async def acquire_download_lock(self, url: str, ttl=60) -> bool:
+    async def acquire_download_lock(self, url: str, ttl: int = 60) -> bool:
         """
-        Try to acquire a lock for downloading a given URL.
-        Returns True if acquired, False otherwise.
+        Acquire a lock for downloading a given URL.
+
+        Returns:
+            bool: True if lock acquired, False if already locked.
         """
         lock_key = f"lock:{url}"
         return (await self.redis.set(lock_key, "in_progress", nx=True, ex=ttl)) is not None
 
-    async def release_download_lock(self, url: str):
+    async def release_download_lock(self, url: str) -> None:
         """Release the lock for the given URL."""
         lock_key = f"lock:{url}"
         await self.redis.delete(lock_key)
 
-    async def check_urls_batch(self, urls: list[str]) -> list[str]:
+    async def check_urls_batch(self, urls: List[str]) -> List[str]:
         """
-        Check which URLs are not processed. Returns a filtered list of URLs that are not
-        downloaded or not found yet.
+        Given a batch of URLs, return only those that are not downloaded or not found.
+
+        Args:
+            urls (List[str]): A list of URLs to check.
+
+        Returns:
+            List[str]: URLs that are new and should be published for download.
         """
         if not urls:
             return []
+
         pipe = self.redis.pipeline()
         for url in urls:
             pipe.exists(f"downloaded:{url}")
@@ -87,7 +99,7 @@ class RedisClient:
 
         return filtered
 
-    async def close(self):
+    async def close(self) -> None:
         """Close the Redis connection."""
         await self.redis.close()
         logger.info("Redis connection closed.")

@@ -1,9 +1,10 @@
 """
-Database module for the Downloader Service.
+Database module managing PostgreSQL interactions.
 
-This module manages PostgreSQL database connections using asyncpg.
-It initializes the database schema (images table) and provides a method
-to store image records.
+Handles:
+- Creating a connection pool.
+- Initializing the database schema.
+- Inserting and retrieving image records.
 """
 
 import logging
@@ -14,17 +15,12 @@ from config import settings
 logger = logging.getLogger(__name__)
 
 class Database:
-    """PostgreSQL database handler with connection pooling."""
-
+    """Handles PostgreSQL database connections and queries."""
     def __init__(self):
-        """Initialize the database pool attribute."""
         self.pool: Optional[asyncpg.pool.Pool] = None
 
-    async def connect(self):
-        """
-        Establish a connection pool to the PostgreSQL database.
-        On success, initialize the database.
-        """
+    async def connect(self) -> None:
+        """Establish a connection pool to PostgreSQL and initialize the schema."""
         try:
             self.pool = await asyncpg.create_pool(
                 user=settings.PG_USER,
@@ -36,13 +32,13 @@ class Database:
                 max_size=20
             )
             await self.init_db()
-            logger.info("Connected to PostgreSQL.")
+            logger.info("Connected to PostgreSQL and database initialized.")
         except Exception as e:
-            logger.exception("Failed to connect to PostgreSQL: %s", e)
+            logger.exception("Failed to connect/init PostgreSQL: %s", e)
             raise
 
-    async def init_db(self):
-        """Initialize the database by creating the images table if it does not exist."""
+    async def init_db(self) -> None:
+        """Create the images table if it does not exist."""
         create_table_query = """
         CREATE TABLE IF NOT EXISTS images (
             id SERIAL PRIMARY KEY,
@@ -53,44 +49,48 @@ class Database:
         """
         async with self.pool.acquire() as connection:
             await connection.execute(create_table_query)
-            logger.info("Database initialized and ready.")
+            logger.info("Database schema ensured.")
 
     async def store_image_record(self, url: str, file_path: str) -> Optional[int]:
         """
-        Store a record of the downloaded image in PostgreSQL and return the image ID.
-        If the URL already exists, retrieve its ID instead of creating a new record.
+        Store a record of the downloaded image.
+        If the URL already exists, returns the existing ID.
+
+        Args:
+            url (str): Image URL.
+            file_path (str): Local file path of downloaded image.
+
+        Returns:
+            Optional[int]: The image ID if successful, else None.
         """
         insert_query = """
             INSERT INTO images (url, file_path) VALUES ($1, $2)
             ON CONFLICT (url) DO NOTHING
             RETURNING id;
         """
-        try:
-            async with self.pool.acquire() as connection:
-                result = await connection.fetchrow(insert_query, url, file_path)
-                if result:
-                    image_id = result['id']
-                    logger.debug("Stored image record for URL: %s with ID: %s", url, image_id)
-                    return image_id
-                else:
-                    # If the URL already exists, fetch its ID
-                    select_query = "SELECT id FROM images WHERE url = $1;"
-                    existing = await connection.fetchrow(select_query, url)
-                    if existing:
-                        image_id = existing['id']
-                        logger.debug("URL already exists. Retrieved image ID: %s", image_id)
-                        return image_id
-                    else:
-                        logger.error("Failed to retrieve image ID for URL: %s", url)
-                        return None
-        except Exception as e:
-            logger.exception("Error storing image record for URL %s: %s", url, e)
-            raise
+        select_query = "SELECT id FROM images WHERE url = $1;"
 
-    async def close(self):
+        async with self.pool.acquire() as connection:
+            # Try to insert a new record
+            result = await connection.fetchrow(insert_query, url, file_path)
+            if result:
+                image_id = result["id"]
+                logger.debug("Inserted new image record URL: %s, ID: %d", url, image_id)
+                return image_id
+
+            # If insert didn't return an ID, the URL might already exist
+            existing = await connection.fetchrow(select_query, url)
+            if existing:
+                logger.debug("URL already existed, retrieved ID: %d", existing["id"])
+                return existing["id"]
+
+            logger.error("Failed to store or retrieve image record for URL: %s", url)
+            return None
+
+    async def close(self) -> None:
         """Close the connection pool."""
-        await self.pool.close()
-        logger.info("PostgreSQL connection pool closed.")
-
+        if self.pool is not None:
+            await self.pool.close()
+            logger.info("PostgreSQL connection pool closed.")
 
 database = Database()

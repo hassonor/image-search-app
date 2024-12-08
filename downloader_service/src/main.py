@@ -1,11 +1,12 @@
 """
-Main entry point for the Downloader Service.
+main.py
 
-This module sets up all connections (Postgres, Redis, RabbitMQ), starts
-the metrics server, consumes messages from the RabbitMQ queue,
-and processes URL downloads in chunks. It also handles graceful shutdown.
+Main entry point for the Downloader Service.
+Orchestrates startup connections, message consumption, URL publishing,
+and runs a FastAPI server for documentation.
 """
-import os
+
+import asyncio
 import signal
 from logging_config import logger
 from metrics import start_metrics_server
@@ -14,143 +15,68 @@ from download_service import DownloaderService
 from redis_client import redis_client
 from database import database
 from config import settings
-import aio_pika
-import json
-import asyncio
-import aiofiles
+from server_runner import run_api_server
+from startup import retry_connection
+from messaging.callbacks import message_callback
+from messaging.publishers import publish_urls
 
 
-async def main():
-    downloader_service = DownloaderService()
+def shutdown():
+    """
+    Handle shutdown signals by canceling all running tasks.
+    """
+    logger.info("Shutdown signal received. Stopping service...")
+    for task in asyncio.all_tasks():
+        task.cancel()
+
+
+async def main_async():
+    """
+    Asynchronous main entry point.
+    Connects to services, starts metrics, sets up consumers, publishes initial URLs,
+    and runs the API server.
+    """
+    downloader_service = DownloaderService(database=database, redis_client=redis_client)
+
     try:
+        # Connect services
         await retry_connection(database.connect, name="PostgreSQL")
         await retry_connection(redis_client.connect, name="Redis")
         await retry_connection(rabbitmq_client.connect, name="RabbitMQ")
 
+        # Start metrics server
         start_metrics_server(port=settings.METRICS_PORT)
 
-        async def callback(url: str):
-            await message_callback(url, downloader_service)
+        # Setup RabbitMQ consumer
+        await retry_connection(
+            lambda: rabbitmq_client.consume(
+                settings.DOWNLOAD_QUEUE,
+                lambda url: message_callback(url, downloader_service)
+            ),
+            name="RabbitMQ Consumer"
+        )
 
-        # Setup consumer
-        await retry_connection(lambda: rabbitmq_client.consume(settings.DOWNLOAD_QUEUE, callback),
-                               name="RabbitMQ Consumer")
-
-        # Publish URLs from file in a streaming, chunked manner
-        await publish_urls(settings.URLS_FILE_PATH)
+        # Publish initial URLs from file
+        await publish_urls(settings.URLS_FILE_PATH, settings.URL_CHUNK_SIZE)
 
         logger.info("Downloader service is running and ready to process messages.")
+
+        # Run the API server in a background task
+        api_task = asyncio.create_task(run_api_server())
+
+        # Wait indefinitely until a shutdown signal is triggered
         await asyncio.Event().wait()
+
     except asyncio.CancelledError:
-        logger.info("Downloader service is shutting down.")
+        logger.info("Downloader service is shutting down due to signal.")
     except Exception as e:
-        logger.exception(f"Service error: {e}")
+        logger.exception("Service error: %s", e)
     finally:
         await downloader_service.close()
         await rabbitmq_client.close()
         await redis_client.close()
         await database.close()
 
-async def retry_connection(connect_coro, max_retries=7, delay=10, name="service"):
-    """
-    Attempts to run the connect_coro coroutine up to max_retries times,
-    waiting delay seconds between retries. Raises a ConnectionError on failure.
-    """
-    for attempt in range(1, max_retries + 1):
-        try:
-            logger.info(f"Connecting to {name} (attempt {attempt}/{max_retries})...")
-            await connect_coro()
-            logger.info(f"Connected to {name}.")
-            return
-        except Exception as e:
-            logger.warning(f"Failed to connect to {name}: {e}")
-            if attempt < max_retries:
-                logger.info(f"Retrying in {delay} seconds...")
-                await asyncio.sleep(delay)
-    logger.error(f"Could not connect to {name} after {max_retries} attempts.")
-    raise ConnectionError(f"Failed to connect to {name}")
-
-async def publish_embeddings(image_id: int, image_url: str, image_path: str):
-    """
-    Publish a message to the embedding queue to process embeddings for the downloaded image.
-    """
-    message = {
-        "image_id": image_id,
-        "image_url": image_url,
-        "image_path": image_path
-    }
-    try:
-        await rabbitmq_client.publish(settings.EMBEDDING_QUEUE, json.dumps(message))
-        logger.info(f"Published embedding for image_id: {image_id}")
-    except Exception as e:
-        logger.exception(f"Failed to publish embedding for image_id {image_id}: {e}")
-
-async def publish_urls(file_path: str):
-    """
-    Stream URLs from a file in chunks, check against Redis,
-    and publish only unseen URLs to the RabbitMQ queue.
-    """
-    if not file_path or not os.path.exists(file_path):
-        logger.error(f"URL file not found: {file_path}")
-        return
-
-    chunk_size = settings.URL_CHUNK_SIZE
-    urls_buffer = []
-
-    async with aiofiles.open(file_path, 'r') as f:
-        async for line in f:
-            url = line.strip()
-            if not url or url.startswith('#'):
-                continue
-            urls_buffer.append(url)
-
-            if len(urls_buffer) >= chunk_size:
-                await process_and_publish_chunk(urls_buffer)
-                urls_buffer.clear()
-
-    # Process remaining URLs
-    if urls_buffer:
-        await process_and_publish_chunk(urls_buffer)
-
-async def process_and_publish_chunk(urls: list[str]):
-    """
-    Filter URLs through Redis and publish only new URLs to the download queue.
-    """
-    urls_to_publish = await redis_client.check_urls_batch(urls)
-    if not urls_to_publish:
-        return
-
-    logger.info(f"Publishing {len(urls_to_publish)} URLs to queue.")
-    # Publish asynchronously to RabbitMQ
-    for url in urls_to_publish:
-        message = aio_pika.Message(body=json.dumps({"url": url}).encode())
-        await rabbitmq_client.channel.default_exchange.publish(
-            message, routing_key=settings.DOWNLOAD_QUEUE
-        )
-    logger.info("Chunk published.")
-
-async def process_url(image_url: str, downloader_service: DownloaderService):
-    """
-    Process a single URL by downloading the image and publishing embeddings.
-    """
-    result = await downloader_service.download_image(image_url)
-    if result:
-        image_id, image_path = result
-        await publish_embeddings(image_id, image_url, image_path)
-
-async def message_callback(url: str, downloader_service: DownloaderService):
-    """
-    Callback invoked when a new URL message arrives from RabbitMQ.
-    """
-    await process_url(url, downloader_service)
-
-def shutdown():
-    """
-    Handle shutdown signals by canceling all tasks.
-    """
-    logger.info("Shutdown signal received. Stopping service...")
-    for task in asyncio.all_tasks():
-        task.cancel()
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
@@ -158,7 +84,7 @@ if __name__ == "__main__":
         loop.add_signal_handler(sig, shutdown)
 
     try:
-        loop.run_until_complete(main())
+        loop.run_until_complete(main_async())
     except asyncio.CancelledError:
         pass
     finally:

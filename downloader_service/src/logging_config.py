@@ -1,18 +1,20 @@
 """
-Logging configuration module.
-
-This module sets up the logging based on environment settings and outputs
-logs to stdout with the specified log level and format.
+Logging configuration module for the Downloader Service.
 """
 
 import logging
+import sys
 from config import settings
 
-def setup_logging():
+def setup_logging() -> logging.Logger:
     """
     Configure logging based on settings.
     """
-    logging.basicConfig(level=settings.LOG_LEVEL, format=settings.LOG_FORMAT)
+    logging.basicConfig(
+        level=settings.LOG_LEVEL,
+        format=settings.LOG_FORMAT,
+        stream=sys.stdout
+    )
     logger = logging.getLogger("downloader_service")
     logger.debug("Logging configured at level: %s", settings.LOG_LEVEL)
     return logger

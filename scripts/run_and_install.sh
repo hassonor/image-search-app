@@ -13,8 +13,13 @@ echo "Monitoring and admin tools started."
 
 # Step 3: Start application services
 echo "Starting application services..."
-docker-compose up --no-recreate -d downloader embedding_generator api
+docker-compose up --no-recreate -d downloader embedding_generator api frontend
 echo "Application services started."
+
+# Step 4: Start frontend
+echo "Starting frontend..."
+docker-compose up --no-recreate -d frontend
+echo "Application frontend started."
 
 # Final message
 echo "All services started successfully!"

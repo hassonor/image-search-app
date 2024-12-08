@@ -1,10 +1,13 @@
 """
-Downloader Service module.
+DownloaderService module.
 
-This service handles the download of images from provided URLs.
-It uses an asynchronous HTTP client (aiohttp) with a specified timeout,
-checks a Bloom filter and Redis caches to prevent duplicates, and
-stores downloaded images in a local directory. It also logs download metrics.
+Responsible for:
+- Checking if a URL should be downloaded using Bloom filter, Redis, and locks.
+- Downloading the image.
+- Storing metadata in PostgreSQL.
+- Reporting metrics.
+
+Dependencies are injected via constructor for easier testing and flexibility.
 """
 
 import logging
@@ -15,117 +18,129 @@ import hashlib
 from typing import Optional, Tuple
 from pybloom_live import BloomFilter
 from config import settings
-from redis_client import redis_client
-from database import database
+from redis_client import RedisClient
+from database import Database
 from metrics import images_downloaded, download_errors, download_latency
 
 logger = logging.getLogger(__name__)
 
 class DownloaderService:
     """
-    Service to handle downloading images from URLs.
+    Service for downloading images from URLs.
 
-    This service ensures that each URL is downloaded once by using a Bloom filter,
-    Redis caching, and distributed locks. Downloaded images are persisted locally,
-    and records are stored in PostgreSQL.
+    It prevents duplicates using a Bloom filter, Redis caching, and distributed locks.
+    Successfully downloaded images are stored locally and recorded in PostgreSQL.
     """
 
-    def __init__(self):
-        """
-        Initialize the DownloaderService with an HTTP session and Bloom filter.
-        """
+    def __init__(self, database: Database, redis_client: RedisClient):
+        self.database = database
+        self.redis_client = redis_client
         self.session = aiohttp.ClientSession(headers={"User-Agent": settings.USER_AGENT})
-        self.bloom = BloomFilter(capacity=settings.BLOOM_EXPECTED_ITEMS, error_rate=settings.BLOOM_ERROR_RATE)
+        self.bloom = BloomFilter(
+            capacity=settings.BLOOM_EXPECTED_ITEMS,
+            error_rate=settings.BLOOM_ERROR_RATE
+        )
         self.lock = asyncio.Lock()
 
     async def download_image(self, url: str) -> Optional[Tuple[int, str]]:
         """
-        Asynchronously download the image from the given URL and return the (image_id, file_path).
+        Download the image from the given URL, store locally and record in DB.
 
-        This method checks Redis and the Bloom filter to skip duplicates,
-        and uses a distributed lock in Redis to prevent concurrent downloads of the same URL.
+        Steps:
+            1. Acquire a Redis-based lock to prevent concurrent downloads.
+            2. Check Bloom filter, Redis caches for duplicates.
+            3. If new, download the image and store it.
+            4. Record metadata in PostgreSQL.
+            5. Update Redis and Bloom filter caches.
+
+        Args:
+            url (str): The image URL to download.
+
+        Returns:
+            Optional[Tuple[int, str]]: (image_id, local_path) if successful, None otherwise.
         """
-        # Acquire a distributed lock to prevent concurrent downloads of the same URL
-        acquired = await redis_client.acquire_download_lock(url)
+        acquired = await self.redis_client.acquire_download_lock(url)
         if not acquired:
-            logger.debug("Another consumer is already processing this URL, skipping: %s", url)
+            logger.debug("URL currently locked: %s", url)
             return None
 
         try:
             async with self.lock:
                 if url in self.bloom:
-                    logger.debug("URL already processed (Bloom filter), skipping: %s", url)
+                    logger.debug("URL already in bloom filter: %s", url)
                     return None
 
-            if await redis_client.is_url_downloaded(url):
-                logger.debug("URL already downloaded, skipping: %s", url)
+            if await self.redis_client.is_url_downloaded(url):
+                logger.debug("URL already downloaded (Redis): %s", url)
                 return None
 
-            if await redis_client.is_url_marked_as_not_found(url):
-                logger.debug("URL marked as not found, skipping: %s", url)
+            if await self.redis_client.is_url_marked_as_not_found(url):
+                logger.debug("URL marked not found: %s", url)
                 return None
 
-            logger.info("Downloading image from URL: %s", url)
+            logger.info("Starting download: %s", url)
             start_time = asyncio.get_event_loop().time()
 
-            try:
-                async with self.session.get(url, timeout=settings.DOWNLOAD_TIMEOUT) as response:
-                    if response.status == 404:
-                        await redis_client.cache_url_as_not_found(url)
-                        logger.warning("Image not found (404): %s", url)
-                        return None
+            async with self.session.get(url, timeout=settings.DOWNLOAD_TIMEOUT) as response:
+                if response.status == 404:
+                    await self.redis_client.cache_url_as_not_found(url)
+                    logger.warning("Image 404 Not Found: %s", url)
+                    return None
 
-                    response.raise_for_status()
+                response.raise_for_status()
+                content = await response.read()
+                filename = self.generate_filename(url)
+                local_path = os.path.join(settings.IMAGE_STORAGE_PATH, filename)
 
-                    content = await response.read()
-                    filename = self.generate_filename(url, response)
-                    local_path = os.path.join(settings.IMAGE_STORAGE_PATH, filename)
+                os.makedirs(settings.IMAGE_STORAGE_PATH, exist_ok=True)
+                with open(local_path, "wb") as f:
+                    f.write(content)
 
-                    os.makedirs(settings.IMAGE_STORAGE_PATH, exist_ok=True)
-                    with open(local_path, "wb") as f:
-                        f.write(content)
+                duration = asyncio.get_event_loop().time() - start_time
+                download_latency.observe(duration)
 
-                    duration = asyncio.get_event_loop().time() - start_time
-                    download_latency.observe(duration)
+                image_id = await self.database.store_image_record(url, local_path)
+                if image_id:
+                    await self.redis_client.cache_url_as_downloaded(url, local_path)
+                    images_downloaded.inc()
 
-                    image_id = await database.store_image_record(url, local_path)
-                    if image_id:
-                        await redis_client.cache_url_as_downloaded(url, local_path)
-                        images_downloaded.inc()
+                    async with self.lock:
+                        self.bloom.add(url)
 
-                        async with self.lock:
-                            self.bloom.add(url)
+                    logger.info("Downloaded and stored: %s (ID: %d)", local_path, image_id)
+                    return image_id, local_path
+                else:
+                    download_errors.inc()
+                    logger.error("Failed to store metadata for URL: %s", url)
+                    return None
 
-                        logger.info("Image downloaded and stored at: %s with ID: %s", local_path, image_id)
-                        return image_id, local_path
-                    else:
-                        download_errors.inc()
-                        logger.error("Failed to retrieve image ID for URL: %s", url)
-                        return None
-
-            except aiohttp.ClientError as e:
-                download_errors.inc()
-                logger.error("Failed to download image %s: %s", url, e)
-                return None
-            except Exception as e:
-                download_errors.inc()
-                logger.exception("Unexpected error downloading image %s: %s", url, e)
-                return None
-
+        except aiohttp.ClientError as e:
+            download_errors.inc()
+            logger.error("ClientError downloading %s: %s", url, e)
+            return None
+        except Exception as e:
+            download_errors.inc()
+            logger.exception("Unexpected error downloading %s: %s", url, e)
+            return None
         finally:
-            # Release the lock regardless of success or failure
-            await redis_client.release_download_lock(url)
+            await self.redis_client.release_download_lock(url)
 
     @staticmethod
-    def generate_filename(url: str, response: aiohttp.ClientResponse) -> str:
+    def generate_filename(url: str) -> str:
         """
-        Generate a unique filename for the downloaded image based on the URL's hash.
+        Generate a unique filename for the downloaded image based on the URL hash.
+
+        Args:
+            url (str): The image URL.
+
+        Returns:
+            str: A unique filename with extension derived from the URL.
         """
         url_hash = hashlib.sha256(url.encode()).hexdigest()
         extension = os.path.splitext(url.split("?")[0])[1] or ".jpg"
         return f"{url_hash}{extension}"
 
-    async def close(self):
+    async def close(self) -> None:
         """Close the HTTP session."""
         await self.session.close()
-        logger.info("HTTP session closed.")
+        logger.info("DownloaderService session closed.")

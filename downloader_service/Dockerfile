@@ -3,11 +3,8 @@
 # Stage 1: Build
 FROM python:3.11-slim as builder
 
-# Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-
-# Set work directory
 WORKDIR /app
 
 # Install build dependencies
@@ -20,7 +17,6 @@ RUN pip wheel --no-cache-dir --wheel-dir /app/wheels -r requirements.txt
 
 # Stage 2: Final Image
 FROM python:3.11-slim
-
 WORKDIR /app
 
 # Install runtime dependencies
@@ -30,17 +26,13 @@ RUN pip install --no-cache /wheels/*
 # Copy application code
 COPY . .
 
-# Create necessary directories as root
+# Create directories and non-root user
 RUN mkdir -p /app/images /app_input
-
-# Create non-root user
 RUN adduser --disabled-password --gecos "" downloader
-
-# Change ownership of the work directory and created directories to 'downloader'
 RUN chown -R downloader:downloader /app /app/images /app_input
 
-# Expose metrics port
-EXPOSE 8000
+USER downloader
 
-# Set the entrypoint command
+EXPOSE 8000 8003
+
 CMD ["python", "src/main.py"]

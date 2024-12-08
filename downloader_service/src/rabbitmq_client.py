@@ -1,27 +1,26 @@
 """
-RabbitMQ client for the Downloader Service.
+RabbitMQ client module.
 
-This module manages connections to RabbitMQ and provides methods to
-consume messages from a queue and publish messages to a specified queue.
+Handles connecting to RabbitMQ and providing methods to consume and publish messages.
 """
+
 import logging
 import aio_pika
 import asyncio
 import json
-from typing import Callable
+from typing import Callable, Awaitable
 from config import settings
 
 logger = logging.getLogger(__name__)
 
 class RabbitMQClient:
     """RabbitMQ client for consuming and publishing messages."""
-
     def __init__(self):
         self.connection: aio_pika.RobustConnection = None
         self.channel: aio_pika.RobustChannel = None
 
-    async def connect(self):
-        """Establish a connection and channel to RabbitMQ."""
+    async def connect(self) -> None:
+        """Establish a RabbitMQ connection and channel."""
         try:
             self.connection = await aio_pika.connect_robust(
                 host=settings.RABBITMQ_HOST,
@@ -36,13 +35,14 @@ class RabbitMQClient:
             logger.exception("Failed to connect to RabbitMQ: %s", e)
             raise
 
-    async def consume(self, queue_name: str, callback: Callable[[str], asyncio.Future]):
+    async def consume(self, queue_name: str, callback: Callable[[str], Awaitable[None]]) -> None:
         """
-        Asynchronously consume messages from the given queue and process them using the callback.
+        Consume messages from the specified queue and process them with a given callback.
 
         Args:
             queue_name (str): The name of the RabbitMQ queue.
-            callback (Callable[[str], asyncio.Future]): The callback function to process the message data.
+            callback (Callable[[str], Awaitable[None]]):
+                A coroutine that processes the URL from the message.
         """
         try:
             queue = await self.channel.declare_queue(queue_name, durable=True)
@@ -52,10 +52,7 @@ class RabbitMQClient:
             logger.exception("Error setting up consumer: %s", e)
             raise
 
-    def _create_on_message(self, callback: Callable[[str], asyncio.Future]):
-        """
-        Create an on_message handler to be invoked when a new message arrives.
-        """
+    def _create_on_message(self, callback: Callable[[str], Awaitable[None]]):
         async def on_message(message: aio_pika.IncomingMessage):
             async with message.process():
                 try:
@@ -65,21 +62,20 @@ class RabbitMQClient:
                     if url:
                         logger.debug("Received URL: %s", url)
                         await callback(url)
-                        logger.info("Processed URL: %s", url)
+                        logger.debug("Processed URL: %s", url)
                     else:
-                        logger.warning("Received message without URL: %s", body)
+                        logger.warning("Received message without 'url' field: %s", body)
                 except Exception as e:
                     logger.exception("Error processing message: %s", e)
-                    # Optionally, you can requeue the message or send to a dead-letter queue
         return on_message
 
-    async def publish(self, queue_name: str, message: str):
+    async def publish(self, queue_name: str, message: str) -> None:
         """
-        Asynchronously publish a message to the specified RabbitMQ queue.
+        Publish a message to the specified RabbitMQ queue.
 
         Args:
-            queue_name (str): The name of the RabbitMQ queue.
-            message (str): The message body as a JSON string.
+            queue_name (str): Name of the queue.
+            message (str): JSON string representing the message.
         """
         try:
             queue = await self.channel.declare_queue(queue_name, durable=True)
@@ -92,10 +88,10 @@ class RabbitMQClient:
             logger.exception("Failed to publish message to %s: %s", queue_name, e)
             raise
 
-    async def close(self):
+    async def close(self) -> None:
         """Close the RabbitMQ connection."""
-        await self.connection.close()
+        if self.connection:
+            await self.connection.close()
         logger.info("RabbitMQ connection closed.")
-
 
 rabbitmq_client = RabbitMQClient()

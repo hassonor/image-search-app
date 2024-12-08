@@ -19,6 +19,7 @@ services:
         condition: service_healthy
     ports:
       - "8000:8000"
+      - "8003:8003"
     networks:
       - my_network
 
