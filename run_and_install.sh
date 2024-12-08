@@ -1,25 +1,18 @@
 #!/bin/bash
 set -e
 
-# Step 1: Start core infrastructure services
 echo "Starting core infrastructure services..."
-docker-compose up --build -d postgres redis rabbitmq elasticsearch prometheus
+docker-compose up --build -d postgres redis rabbitmq elasticsearch prometheus || { echo "Failed to start core infra services."; exit 1; }
 echo "Core infrastructure services started."
 
-# Step 2: Start monitoring and admin tools
 echo "Starting monitoring and admin tools..."
-docker-compose up --no-recreate -d grafana redis_exporter redis-commander rabbitmq_exporter postgres_exporter pgadmin
+docker-compose up --no-recreate -d grafana redis_exporter redis-commander rabbitmq_exporter postgres_exporter pgadmin || { echo "Failed to start monitoring tools."; exit 1; }
 echo "Monitoring and admin tools started."
 
-# Step 3: Start application services
 echo "Starting application services..."
-docker-compose up --no-recreate -d downloader embedding_generator api frontend
+docker-compose up --no-recreate -d downloader embedding_generator api frontend || { echo "Failed to start application services."; exit 1; }
 echo "Application services started."
 
-# Step 4: Start frontend
-echo "Starting frontend..."
-docker-compose up --no-recreate -d frontend
-echo "Application frontend started."
 
-# Final message
+
 echo "All services started successfully!"

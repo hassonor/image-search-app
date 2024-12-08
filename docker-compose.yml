@@ -39,6 +39,7 @@ services:
       - rabbitmq
     ports:
       - "8001:8001"
+      - "8004:8004"
     networks:
       - my_network
 

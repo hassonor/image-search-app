@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock
 import sys
 import os
 
-# Add the embedding service src directory to the Python path for module imports.
-root_path = os.path.join(os.path.dirname(__file__), "..", "..", "embedding_service", "src")
+# Set PYTHONPATH so that tests can find the modules in src easily.
+root_path = os.path.join(os.path.dirname(__file__), "..", "..", "src")
 sys.path.insert(0, root_path)
 
 

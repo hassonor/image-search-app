@@ -44,8 +44,9 @@ class DownloaderService:
         Steps:
             1. Acquire distributed lock.
             2. Check Bloom filter and Redis caches.
-            3. If new, download and store image, record in DB.
-            4. Mark as downloaded in Redis and Bloom filter, update metrics.
+            3. Validate URL before download.
+            4. If new, download and store image, record in DB.
+            5. Mark as downloaded in Redis and Bloom filter, update metrics.
 
         Args:
             url (str): Image URL to download.
@@ -59,6 +60,12 @@ class DownloaderService:
             return None
 
         try:
+            # Validate URL format early, to avoid unnecessary network calls.
+            if not self.is_valid_url(url):
+                download_errors.inc()
+                logger.error("Invalid URL format: %s", url)
+                return None
+
             async with self.lock:
                 if url in self.bloom:
                     logger.debug("URL in bloom filter: %s", url)
@@ -108,16 +115,38 @@ class DownloaderService:
                     logger.error("Failed to store metadata for URL: %s", url)
                     return None
 
+        except aiohttp.ClientConnectorError as e:
+            # Networking issues, DNS errors, refused connections
+            download_errors.inc()
+            logger.error("ConnectionError downloading %s: %s", url, e)
+            return None
+        except aiohttp.ClientResponseError as e:
+            # Non-200 status codes (other than 404 handled above), request issues
+            download_errors.inc()
+            logger.error("HTTP error downloading %s: %s (status: %d)", url, e, e.status)
+            return None
         except aiohttp.ClientError as e:
+            # Generic client error (e.g., invalid URL scheme, SSL error)
             download_errors.inc()
             logger.error("ClientError downloading %s: %s", url, e)
             return None
         except Exception as e:
+            # Unexpected errors
             download_errors.inc()
             logger.exception("Unexpected error downloading %s: %s", url, e)
             return None
         finally:
             await self.redis_client.release_download_lock(url)
+
+    @staticmethod
+    def is_valid_url(url: str) -> bool:
+        """
+        Validate the URL format before attempting to download.
+        This helps fail fast on clearly malformed URLs.
+        """
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        return all([parsed.scheme in ("http", "https"), parsed.netloc])
 
     @staticmethod
     def generate_filename(url: str) -> str:
@@ -130,11 +159,9 @@ class DownloaderService:
         Returns:
             str: A unique filename with an extension derived from the URL.
         """
+        import hashlib
+        import os
+
         url_hash = hashlib.sha256(url.encode()).hexdigest()
         extension = os.path.splitext(url.split("?")[0])[1] or ".jpg"
         return f"{url_hash}{extension}"
-
-    async def close(self) -> None:
-        """Close the HTTP session."""
-        await self.session.close()
-        logger.info("DownloaderService session closed.")

@@ -1,8 +1,7 @@
 """
-Metrics module for the API Service.
+infrastructure/metrics.py
 
-Defines Prometheus metrics for query counts, errors, and latency.
-Provides function to start the metrics server.
+Defines Prometheus metrics and starts a metrics server for the API service.
 """
 
 from prometheus_client import Counter, Histogram, start_http_server
@@ -23,10 +22,12 @@ query_latency = Histogram(
     "Time taken to process search queries",
 )
 
-
 def start_metrics_server(port: int = 8002) -> None:
     """
     Start Prometheus metrics server on the given port.
+
+    Args:
+        port (int): Port number for metrics server.
     """
     try:
         start_http_server(port)

@@ -1,9 +1,14 @@
+"""
+infrastructure/elasticsearch_client.py
+
+Elasticsearch client for searching embeddings.
+"""
+
 import logging
 from elasticsearch import AsyncElasticsearch, exceptions
-from config import settings
+from infrastructure.config import settings
 
 logger = logging.getLogger(__name__)
-
 
 class ElasticsearchClient:
     """Elasticsearch client for searching embeddings."""
@@ -16,8 +21,17 @@ class ElasticsearchClient:
             retry_on_timeout=True
         )
 
-    async def search_embeddings(self, embedding: list, top_k: int = 5):
-        """Search for similar embeddings in Elasticsearch."""
+    async def search_embeddings(self, embedding: list, top_k: int = 5) -> list:
+        """
+        Search for similar embeddings in Elasticsearch.
+
+        Args:
+            embedding (list): The query embedding vector.
+            top_k (int): Number of top results to retrieve.
+
+        Returns:
+            list: A list of result dictionaries.
+        """
         try:
             query = {
                 "size": top_k,
@@ -60,6 +74,5 @@ class ElasticsearchClient:
         """Close the Elasticsearch connection."""
         await self.es.close()
         logger.info("Elasticsearch connection closed.")
-
 
 elasticsearch_client = ElasticsearchClient()

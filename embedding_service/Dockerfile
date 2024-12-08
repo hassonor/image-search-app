@@ -29,7 +29,7 @@ RUN pip install -r requirements.txt
 COPY src/ ./src/
 
 # Expose metrics port
-EXPOSE 8001
+EXPOSE 8001 8004
 
 # Set the entrypoint command
 CMD ["python", "src/main.py"]

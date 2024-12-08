@@ -11,6 +11,8 @@ Orchestrates:
 
 import asyncio
 import signal
+
+
 from infrastructure.logging_config import logger
 from infrastructure.metrics import start_metrics_server
 from infrastructure.rabbitmq_client import rabbitmq_client
@@ -20,6 +22,7 @@ from domain.embedding_service import EmbeddingService
 from application.retry import retry_connection
 from application.message_processor import process_message
 from application.shutdown import shutdown
+from application.server_runner import run_api_server
 
 logger = logger
 
@@ -39,6 +42,9 @@ async def main():
 
         # Start metrics server after consumer is ready
         start_metrics_server(port=settings.METRICS_PORT)
+
+        # Run the API server in background
+        api_task = asyncio.create_task(run_api_server())
 
         logger.info("Embedding Generator Service is running and ready to process messages.")
         await asyncio.Event().wait()

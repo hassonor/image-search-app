@@ -1,11 +1,16 @@
+"""
+infrastructure/logging_config.py
+
+Configures logging for the API service based on the settings.
+"""
+
 import logging
 import sys
-from config import settings
+from infrastructure.config import settings
 
-
-def setup_logging():
+def setup_logging() -> logging.Logger:
     """
-    Configure logging based on settings.
+    Configure logging with the specified log level and format.
     """
     logging.basicConfig(
         level=settings.LOG_LEVEL,
@@ -15,6 +20,5 @@ def setup_logging():
     logger = logging.getLogger("ui_service")
     logger.debug("Logging configured at level: %s", settings.LOG_LEVEL)
     return logger
-
 
 logger = setup_logging()
