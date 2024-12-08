@@ -1,14 +1,16 @@
 """
-Logging configuration module for the Downloader Service.
+logging_config.py
+
+Configures logging for the downloader service.
 """
 
 import logging
 import sys
-from config import settings
+from infrastructure.config import settings
 
 def setup_logging() -> logging.Logger:
     """
-    Configure logging based on settings.
+    Configure logging based on environment settings.
     """
     logging.basicConfig(
         level=settings.LOG_LEVEL,

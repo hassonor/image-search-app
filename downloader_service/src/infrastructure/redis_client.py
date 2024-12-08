@@ -1,21 +1,18 @@
 """
-Redis client module for handling URL caching, distributed locks, and batch checks.
+redis_client.py
 
-Handles:
-- Check if a URL is already downloaded/not-found.
-- Acquire and release a distributed lock per URL to avoid duplicates.
-- Batch checking URLs to filter out already processed entries.
+Manages Redis connections for caching URL states and distributed locks.
 """
 
 import logging
 import redis.asyncio as redis
-from config import settings
 from typing import List
+from infrastructure.config import settings
 
 logger = logging.getLogger(__name__)
 
 class RedisClient:
-    """Manages Redis caching and locking for URLs."""
+    """Redis client for URL caching and lock handling."""
     def __init__(self):
         self.redis = redis.Redis(
             host=settings.REDIS_HOST,
@@ -25,7 +22,7 @@ class RedisClient:
         )
 
     async def connect(self) -> None:
-        """Check connection by pinging Redis."""
+        """Check Redis connection by pinging."""
         try:
             await self.redis.ping()
             logger.info("Connected to Redis.")
@@ -34,53 +31,44 @@ class RedisClient:
             raise
 
     async def is_url_downloaded(self, url: str) -> bool:
-        """Return True if the URL has already been downloaded."""
         key = f"downloaded:{url}"
         return (await self.redis.exists(key)) == 1
 
     async def cache_url_as_downloaded(self, url: str, file_path: str) -> None:
-        """Mark the URL as downloaded by caching its file path."""
         key = f"downloaded:{url}"
         await self.redis.set(key, file_path)
 
     async def is_url_marked_as_not_found(self, url: str) -> bool:
-        """Return True if the URL was previously marked as not found."""
         key = f"not_found:{url}"
         return (await self.redis.exists(key)) == 1
 
     async def cache_url_as_not_found(self, url: str) -> None:
-        """Cache the URL as not found."""
         key = f"not_found:{url}"
         await self.redis.set(key, "true")
 
     async def acquire_download_lock(self, url: str, ttl: int = 60) -> bool:
         """
-        Acquire a lock for downloading a given URL.
-
-        Returns:
-            bool: True if lock acquired, False if already locked.
+        Acquire a distributed lock to prevent concurrent downloads of the same URL.
+        Returns True if lock acquired, False otherwise.
         """
         lock_key = f"lock:{url}"
         return (await self.redis.set(lock_key, "in_progress", nx=True, ex=ttl)) is not None
 
     async def release_download_lock(self, url: str) -> None:
-        """Release the lock for the given URL."""
         lock_key = f"lock:{url}"
         await self.redis.delete(lock_key)
 
     async def check_urls_batch(self, urls: List[str]) -> List[str]:
         """
-        Given a batch of URLs, return only those that are not downloaded or not found.
+        Filter a list of URLs to find those not already processed.
 
         Args:
-            urls (List[str]): A list of URLs to check.
-
+            urls (List[str]): URLs to check.
         Returns:
-            List[str]: URLs that are new and should be published for download.
+            List[str]: Unprocessed URLs.
         """
         if not urls:
             return []
-
         pipe = self.redis.pipeline()
         for url in urls:
             pipe.exists(f"downloaded:{url}")

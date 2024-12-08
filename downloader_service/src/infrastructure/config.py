@@ -1,8 +1,8 @@
 """
-Configuration module for the Downloader Service.
+config.py
 
-This module defines configuration settings using Pydantic's BaseSettings
-to load values from environment variables.
+Provides configuration settings for the downloader service using pydantic's BaseSettings.
+Loads values from environment variables.
 """
 
 from pydantic import BaseSettings, Field
@@ -10,9 +10,7 @@ from pydantic import BaseSettings, Field
 class Settings(BaseSettings):
     # Logging
     LOG_LEVEL: str = Field("INFO", env="LOG_LEVEL")
-    LOG_FORMAT: str = Field(
-        "%(asctime)s [%(levelname)s] %(name)s: %(message)s", env="LOG_FORMAT"
-    )
+    LOG_FORMAT: str = Field("%(asctime)s [%(levelname)s] %(name)s: %(message)s", env="LOG_FORMAT")
 
     # PostgreSQL
     PG_HOST: str = Field("localhost", env="PG_HOST")
@@ -50,7 +48,7 @@ class Settings(BaseSettings):
     # Number of Consumers
     NUM_CONSUMERS: int = Field(4, env="NUM_CONSUMERS")
 
-    # New: Chunk size for file reading
+    # Chunk size for file reading
     URL_CHUNK_SIZE: int = Field(10_000, env="URL_CHUNK_SIZE")
 
     class Config:

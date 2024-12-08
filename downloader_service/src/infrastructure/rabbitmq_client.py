@@ -1,7 +1,7 @@
 """
-RabbitMQ client module.
+rabbitmq_client.py
 
-Handles connecting to RabbitMQ and providing methods to consume and publish messages.
+RabbitMQ client for connecting, consuming, and publishing messages.
 """
 
 import logging
@@ -9,18 +9,18 @@ import aio_pika
 import asyncio
 import json
 from typing import Callable, Awaitable
-from config import settings
+from infrastructure.config import settings
 
 logger = logging.getLogger(__name__)
 
 class RabbitMQClient:
-    """RabbitMQ client for consuming and publishing messages."""
+    """RabbitMQ client for message consumption and publication."""
     def __init__(self):
         self.connection: aio_pika.RobustConnection = None
         self.channel: aio_pika.RobustChannel = None
 
     async def connect(self) -> None:
-        """Establish a RabbitMQ connection and channel."""
+        """Connect to RabbitMQ and initialize a channel."""
         try:
             self.connection = await aio_pika.connect_robust(
                 host=settings.RABBITMQ_HOST,
@@ -37,12 +37,12 @@ class RabbitMQClient:
 
     async def consume(self, queue_name: str, callback: Callable[[str], Awaitable[None]]) -> None:
         """
-        Consume messages from the specified queue and process them with a given callback.
+        Start consuming messages from the given queue using the provided callback.
 
         Args:
-            queue_name (str): The name of the RabbitMQ queue.
+            queue_name (str): Name of the RabbitMQ queue.
             callback (Callable[[str], Awaitable[None]]):
-                A coroutine that processes the URL from the message.
+                Async function to process the received message.
         """
         try:
             queue = await self.channel.declare_queue(queue_name, durable=True)
@@ -64,18 +64,18 @@ class RabbitMQClient:
                         await callback(url)
                         logger.debug("Processed URL: %s", url)
                     else:
-                        logger.warning("Received message without 'url' field: %s", body)
+                        logger.warning("Received message without 'url': %s", body)
                 except Exception as e:
                     logger.exception("Error processing message: %s", e)
         return on_message
 
     async def publish(self, queue_name: str, message: str) -> None:
         """
-        Publish a message to the specified RabbitMQ queue.
+        Publish a message to a specified queue.
 
         Args:
-            queue_name (str): Name of the queue.
-            message (str): JSON string representing the message.
+            queue_name (str): Target RabbitMQ queue.
+            message (str): JSON string of the message to publish.
         """
         try:
             queue = await self.channel.declare_queue(queue_name, durable=True)

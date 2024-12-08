@@ -10,7 +10,8 @@ Handles:
 import logging
 from typing import Optional
 import asyncpg
-from config import settings
+from infrastructure.config import settings
+
 
 logger = logging.getLogger(__name__)
 

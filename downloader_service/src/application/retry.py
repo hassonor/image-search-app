@@ -1,7 +1,7 @@
 """
-startup.py
+retry.py
 
-Handles retrying connections to external services (PostgreSQL, Redis, RabbitMQ).
+Provides a retry mechanism for establishing connections to external services.
 """
 
 import asyncio
@@ -11,8 +11,16 @@ logger = logging.getLogger(__name__)
 
 async def retry_connection(connect_coro, max_retries=7, delay=10, name="service"):
     """
-    Attempt to run `connect_coro` up to `max_retries` times with `delay` seconds between retries.
-    Raises ConnectionError if unable to connect.
+    Retry connecting to a service multiple times with a delay between attempts.
+
+    Args:
+        connect_coro (coroutine): Connection coroutine.
+        max_retries (int): Maximum number of attempts.
+        delay (int): Delay in seconds between attempts.
+        name (str): Service name for logging.
+
+    Raises:
+        ConnectionError: If unable to connect after max_retries.
     """
     for attempt in range(1, max_retries + 1):
         try:
