@@ -12,8 +12,8 @@ Ensure the following dependencies are installed on your machine:
 
 1. Build and Start the Services
 Using Docker Compose, you can build and start all the necessary services (**PLEASE NOTE: First run will take about 10 minutes + Run One by One the order matters.**) 
-* Run the following script: `run_and_install.sh` On the sub folder: `./scripts/run_and_install.sh`.
-* If you want to clean all docker and downloaded images environment first run: `reset.sh` on the sub folder: `./scripts/reset.sh`
+* Run the following script: `run_and_install.sh`. Run: `./run_and_install.sh`.
+* If you want to clean all docker and downloaded images environment first run: `reset.sh`. Run: `./reset.sh`
    
 2. Access the Services
 * **Frontend (React)**: http://localhost:3030
