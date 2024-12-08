@@ -13,7 +13,7 @@ import logging
 
 from infrastructure.metrics import queries_total, query_errors_total, query_latency
 from application.pagination import paginate_results
-from application.models import SearchResult
+from application.models import SearchResult, FullSearchResponse  # Import FullSearchResponse
 from domain.embedding_service import EmbeddingService
 from infrastructure.elasticsearch_client import elasticsearch_client
 
@@ -39,7 +39,7 @@ async def health():
     return {"status": "ok", "service": "api_server"}
 
 
-@app.get("/get_image", response_model=List[SearchResult])
+@app.get("/get_image", response_model=FullSearchResponse)
 async def get_image(
     query_string: str = Query(..., min_length=1),
     page: int = Query(1, ge=1),
@@ -47,7 +47,7 @@ async def get_image(
 ):
     """
     Search for images based on the query string with pagination.
-    Returns a list of SearchResult objects.
+    Returns a response containing the query and a list of SearchResult objects.
     """
     queries_total.inc()
     start_time = asyncio.get_event_loop().time()
@@ -67,14 +67,17 @@ async def get_image(
         query_latency.observe(search_time)
 
         if not paged_results:
-            # Return empty list with status 200 if no matches
-            return []
+            # Return empty results but still include the query
+            return FullSearchResponse(query=query_string, results=[])
 
         logger.info(
             "Search query '%s' returned %d results (page %d, size %d).",
             query_string, len(paged_results), page, size
         )
-        return [SearchResult(**res) for res in paged_results]
+        return FullSearchResponse(
+            query=query_string,
+            results=[SearchResult(**res) for res in paged_results]
+        )
 
     except HTTPException as he:
         query_errors_total.inc()
