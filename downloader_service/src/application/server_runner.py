@@ -5,10 +5,13 @@ Runs the FastAPI server for the downloader service in a background task.
 """
 
 import logging
+
 import uvicorn
+
 from interface.api import app
 
 logger = logging.getLogger(__name__)
+
 
 async def run_api_server(host: str = "0.0.0.0", port: int = 8003):
     """

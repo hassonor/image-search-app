@@ -5,19 +5,22 @@ Defines the DownloaderService class responsible for downloading images,
 avoiding duplicates, and recording metadata in the database.
 """
 
-import logging
-import os
-import aiohttp
 import asyncio
 import hashlib
+import logging
+import os
 from typing import Optional, Tuple
+
+import aiohttp
 from pybloom_live import BloomFilter
+
 from infrastructure.config import settings
-from infrastructure.redis_client import RedisClient
 from infrastructure.database import Database
-from infrastructure.metrics import images_downloaded, download_errors, download_latency
+from infrastructure.metrics import download_errors, download_latency, images_downloaded
+from infrastructure.redis_client import RedisClient
 
 logger = logging.getLogger(__name__)
+
 
 class DownloaderService:
     """
@@ -32,8 +35,7 @@ class DownloaderService:
         self.redis_client = redis_client
         self.session = aiohttp.ClientSession(headers={"User-Agent": settings.USER_AGENT})
         self.bloom = BloomFilter(
-            capacity=settings.BLOOM_EXPECTED_ITEMS,
-            error_rate=settings.BLOOM_ERROR_RATE
+            capacity=settings.BLOOM_EXPECTED_ITEMS, error_rate=settings.BLOOM_ERROR_RATE
         )
         self.lock = asyncio.Lock()
 
@@ -145,6 +147,7 @@ class DownloaderService:
         This helps fail fast on clearly malformed URLs.
         """
         from urllib.parse import urlparse
+
         parsed = urlparse(url)
         return all([parsed.scheme in ("http", "https"), parsed.netloc])
 
@@ -159,7 +162,6 @@ class DownloaderService:
         Returns:
             str: A unique filename with an extension derived from the URL.
         """
-        import hashlib
         import os
 
         url_hash = hashlib.sha256(url.encode()).hexdigest()

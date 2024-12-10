@@ -4,17 +4,21 @@ rabbitmq_client.py
 RabbitMQ client for connecting, consuming, and publishing messages.
 """
 
-import logging
-import aio_pika
 import asyncio
 import json
-from typing import Callable, Awaitable
+import logging
+from typing import Awaitable, Callable
+
+import aio_pika
+
 from infrastructure.config import settings
 
 logger = logging.getLogger(__name__)
 
+
 class RabbitMQClient:
     """RabbitMQ client for message consumption and publication."""
+
     def __init__(self):
         self.connection: aio_pika.RobustConnection = None
         self.channel: aio_pika.RobustChannel = None
@@ -26,7 +30,7 @@ class RabbitMQClient:
                 host=settings.RABBITMQ_HOST,
                 port=settings.RABBITMQ_PORT,
                 login=settings.RABBITMQ_USER,
-                password=settings.RABBITMQ_PASSWORD
+                password=settings.RABBITMQ_PASSWORD,
             )
             self.channel = await self.connection.channel()
             await self.channel.set_qos(prefetch_count=settings.NUM_CONSUMERS)
@@ -67,6 +71,7 @@ class RabbitMQClient:
                         logger.warning("Received message without 'url': %s", body)
                 except Exception as e:
                     logger.exception("Error processing message: %s", e)
+
         return on_message
 
     async def publish(self, queue_name: str, message: str) -> None:
@@ -80,8 +85,7 @@ class RabbitMQClient:
         try:
             queue = await self.channel.declare_queue(queue_name, durable=True)
             await self.channel.default_exchange.publish(
-                aio_pika.Message(body=message.encode()),
-                routing_key=queue.name
+                aio_pika.Message(body=message.encode()), routing_key=queue.name
             )
             logger.debug("Published message to %s: %s", queue_name, message)
         except Exception as e:
@@ -93,5 +97,6 @@ class RabbitMQClient:
         if self.connection:
             await self.connection.close()
         logger.info("RabbitMQ connection closed.")
+
 
 rabbitmq_client = RabbitMQClient()

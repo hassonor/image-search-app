@@ -9,8 +9,9 @@ from fastapi import FastAPI
 app = FastAPI(
     title="Downloader Service API",
     description="API for health checks and administrative endpoints.",
-    version="1.0.0"
+    version="1.0.0",
 )
+
 
 @app.get("/health", summary="Health Check", description="Returns service health status.")
 async def health_check():

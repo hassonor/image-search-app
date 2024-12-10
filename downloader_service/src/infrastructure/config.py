@@ -7,6 +7,7 @@ Loads values from environment variables.
 
 from pydantic import BaseSettings, Field
 
+
 class Settings(BaseSettings):
     # Logging
     LOG_LEVEL: str = Field("INFO", env="LOG_LEVEL")
@@ -54,5 +55,6 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+
 
 settings = Settings()

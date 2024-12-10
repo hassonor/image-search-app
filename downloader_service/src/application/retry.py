@@ -9,6 +9,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 async def retry_connection(connect_coro, max_retries=7, delay=10, name="service"):
     """
     Retry connecting to a service multiple times with a delay between attempts.

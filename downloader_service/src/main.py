@@ -14,18 +14,20 @@ Orchestrates:
 
 import asyncio
 import signal
+
+from application.messaging.callbacks import message_callback
+from application.messaging.publishers import publish_urls
+from application.retry import retry_connection
+from application.server_runner import run_api_server
+from application.shutdown import shutdown
+from domain.download_service import DownloaderService
+from infrastructure.config import settings
+from infrastructure.database import database
 from infrastructure.logging_config import logger
 from infrastructure.metrics import start_metrics_server
 from infrastructure.rabbitmq_client import rabbitmq_client
-from domain.download_service import DownloaderService
 from infrastructure.redis_client import redis_client
-from infrastructure.database import database
-from infrastructure.config import settings
-from application.server_runner import run_api_server
-from application.retry import retry_connection
-from application.shutdown import shutdown
-from application.messaging.callbacks import message_callback
-from application.messaging.publishers import publish_urls
+
 
 async def main_async():
     """
@@ -46,9 +48,9 @@ async def main_async():
         await retry_connection(
             lambda: rabbitmq_client.consume(
                 settings.DOWNLOAD_QUEUE,
-                lambda url: message_callback(url, downloader_service)
+                lambda url: message_callback(url, downloader_service),
             ),
-            name="RabbitMQ Consumer"
+            name="RabbitMQ Consumer",
         )
 
         # Publish initial URLs from input file
@@ -71,6 +73,7 @@ async def main_async():
         await rabbitmq_client.close()
         await redis_client.close()
         await database.close()
+
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()

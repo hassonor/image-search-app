@@ -6,6 +6,7 @@ Message callbacks for handling incoming URLs from RabbitMQ.
 
 import logging
 from typing import TYPE_CHECKING
+
 from .publishers import publish_embeddings
 
 if TYPE_CHECKING:
@@ -13,11 +14,13 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 async def message_callback(url: str, downloader_service: "DownloaderService"):
     """
     Callback for handling incoming URLs from RabbitMQ.
     """
     await process_url(url, downloader_service)
+
 
 async def process_url(url: str, downloader_service: "DownloaderService"):
     """

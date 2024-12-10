@@ -7,12 +7,15 @@ Functions to publish messages to RabbitMQ queues and handle initial URL publishi
 import json
 import logging
 from typing import List
+
 import aio_pika
+
 from infrastructure.config import settings
-from infrastructure.redis_client import redis_client
 from infrastructure.rabbitmq_client import rabbitmq_client
+from infrastructure.redis_client import redis_client
 
 logger = logging.getLogger(__name__)
+
 
 async def publish_embeddings(image_id: int, image_url: str, image_path: str):
     """
@@ -29,6 +32,7 @@ async def publish_embeddings(image_id: int, image_url: str, image_path: str):
     except Exception as e:
         logger.exception("Failed to publish embedding for image_id %d: %s", image_id, e)
 
+
 async def publish_urls(file_path: str, chunk_size: int):
     """
     Read URLs from a file and publish them in chunks to the download queue.
@@ -38,6 +42,7 @@ async def publish_urls(file_path: str, chunk_size: int):
         chunk_size (int): Number of URLs to process at a time.
     """
     import os
+
     import aiofiles
 
     if not file_path or not os.path.exists(file_path):
@@ -46,10 +51,10 @@ async def publish_urls(file_path: str, chunk_size: int):
 
     urls_buffer: List[str] = []
 
-    async with aiofiles.open(file_path, 'r') as f:
+    async with aiofiles.open(file_path, "r") as f:
         async for line in f:
             url = line.strip()
-            if not url or url.startswith('#'):
+            if not url or url.startswith("#"):
                 continue
             urls_buffer.append(url)
 
@@ -59,6 +64,7 @@ async def publish_urls(file_path: str, chunk_size: int):
 
     if urls_buffer:
         await process_and_publish_chunk(urls_buffer)
+
 
 async def process_and_publish_chunk(urls: List[str]):
     """

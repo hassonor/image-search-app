@@ -14,6 +14,7 @@ from .publishers import publish_embeddings
 
 logger = logging.getLogger(__name__)
 
+
 async def message_callback(url: str, downloader_service: "DownloaderService"):
     """
     Callback executed when a message (URL) is received from the download queue.

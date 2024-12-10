@@ -9,14 +9,17 @@ Handles:
 
 import logging
 from typing import Optional
-import asyncpg
-from infrastructure.config import settings
 
+import asyncpg
+
+from infrastructure.config import settings
 
 logger = logging.getLogger(__name__)
 
+
 class Database:
     """Handles PostgreSQL database connections and queries."""
+
     def __init__(self):
         self.pool: Optional[asyncpg.pool.Pool] = None
 
@@ -30,7 +33,7 @@ class Database:
                 host=settings.PG_HOST,
                 port=settings.PG_PORT,
                 min_size=10,
-                max_size=20
+                max_size=20,
             )
             await self.init_db()
             logger.info("Connected to PostgreSQL and database initialized.")
@@ -93,5 +96,6 @@ class Database:
         if self.pool is not None:
             await self.pool.close()
             logger.info("PostgreSQL connection pool closed.")
+
 
 database = Database()

@@ -9,6 +9,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def shutdown():
     """
     Handle shutdown signals by canceling all running asyncio tasks.

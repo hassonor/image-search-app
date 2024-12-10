@@ -1,0 +1,42 @@
+# Black configuration file
+# Formatting configurations for your Python codebase
+
+# Maximum line length Black should allow before wrapping lines.
+line-length = 99  # Matches the ruff line-length configuration
+
+# Allow single-quote strings
+string-normalization = true
+
+# Skip string normalization to keep existing strings unchanged
+skip-string-normalization = false
+
+# Enables or disables the use of trailing commas in function arguments and other cases.
+# Trailing commas help when you want to add more arguments in the future and minimize diffs.
+target-version = ['py38']  # Adjust to the version of Python you're using
+include = '\.pyi?$'  # Apply only to Python files and Python interface files
+
+# The types of comments to treat as docstrings.
+# These should follow PEP 257 convention
+extend-exclude = []  # Allow file exclusions here if necessary
+
+# Control the number of lines to be left between functions and class definitions
+# This is typically a good idea to improve readability.
+# Black prefers 2 blank lines between functions and class definitions by default.
+skip-magic-trailing-comma = false
+
+# Automatically reformat code within `__init__` methods to improve consistency
+line-breaking-for-init = false
+
+# When breaking long expressions into multiple lines, Black will use the format below
+# This can be adjusted for consistency with your team's needs.
+# Example:
+# foo_bar = (long_argument1,
+#            long_argument2)
+skip-augmented-assignment = true
+
+# Modify `black` behavior for list comprehensions and lambda functions
+python-implementation = "CPython"  # Or PyPy if that's your choice
+check = false  # Set `True` to check code instead of auto-formatting
+
+# Default configuration for things like `blacken-docs` (to format docstrings as well)
+disable-string-normalization = false

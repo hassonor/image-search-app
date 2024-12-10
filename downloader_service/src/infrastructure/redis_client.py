@@ -5,20 +5,24 @@ Manages Redis connections for caching URL states and distributed locks.
 """
 
 import logging
-import redis.asyncio as redis
 from typing import List
+
+import redis.asyncio as redis
+
 from infrastructure.config import settings
 
 logger = logging.getLogger(__name__)
 
+
 class RedisClient:
     """Redis client for URL caching and lock handling."""
+
     def __init__(self):
         self.redis = redis.Redis(
             host=settings.REDIS_HOST,
             port=settings.REDIS_PORT,
             db=settings.REDIS_DB,
-            decode_responses=True
+            decode_responses=True,
         )
 
     async def connect(self) -> None:
@@ -91,5 +95,6 @@ class RedisClient:
         """Close the Redis connection."""
         await self.redis.close()
         logger.info("Redis connection closed.")
+
 
 redis_client = RedisClient()
