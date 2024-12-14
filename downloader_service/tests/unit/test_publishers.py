@@ -1,18 +1,7 @@
 import pytest
 from unittest.mock import patch, AsyncMock
-from application.messaging.publishers import process_and_publish_chunk, publish_embeddings
+from application.messaging.publishers import publish_embeddings
 from application.messaging.callbacks import message_callback
-
-@pytest.mark.asyncio
-async def test_process_and_publish_chunk():
-    """
-    Test that process_and_publish_chunk filters and publishes new URLs to the download queue.
-    """
-    with patch("application.messaging.publishers.redis_client.check_urls_batch", return_value=["http://example.com/img.jpg"]):
-        mock_channel = AsyncMock()
-        with patch("application.messaging.publishers.rabbitmq_client.channel", mock_channel):
-            await process_and_publish_chunk(["http://example.com/img.jpg"])
-            mock_channel.default_exchange.publish.assert_awaited_once()
 
 @pytest.mark.asyncio
 async def test_publish_embeddings():
