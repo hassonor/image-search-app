@@ -20,5 +20,5 @@ fi
 
 for suite in "${services[@]}"; do
   echo "Running tests in $suite"
-  pytest "$suite" -v
+  (cd "$suite" && pytest -v)
 done
