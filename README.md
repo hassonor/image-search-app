@@ -173,6 +173,41 @@ Custom Grafana dashboards provide visualization for:
 - Service health
 - Processing rates
 
+## Running Tests
+
+This project includes three test suites located under `api_service/tests`:
+
+- **Unit tests** verify individual modules.
+- **Integration tests** check interactions between components.
+- **End-to-end tests** exercise the full request pipeline.
+
+To run each suite with 100% coverage:
+
+```bash
+# Unit tests
+python -m coverage run -m unittest discover api_service/tests/unit
+python -m coverage report --fail-under=100
+
+# Integration tests
+python -m coverage run -m unittest discover api_service/tests/integration
+python -m coverage report --fail-under=100
+
+# End-to-end tests
+python -m coverage run -m unittest discover api_service/tests/e2e
+python -m coverage report --fail-under=100
+```
+
+### Microservice Tests
+
+Additional unit tests are located under each service's `tests/unittests` folder.
+Run them individually, for example:
+
+```bash
+python -m unittest discover file_reader_service/tests/unittests -v
+python -m unittest discover downloader_service/tests/unittests -v
+python -m unittest discover embedding_service/src/tests/unittests -v
+```
+
 ## Contributing
 
 1. Fork the repository
