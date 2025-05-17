@@ -5,22 +5,20 @@
 
 set -e
 
-# Standard unittest suites
-unittest_services=(
+# Test suites for each service. All suites are executed with pytest
+services=(
   "api_service/tests"
   "file_reader_service/tests"
   "downloader_service/tests"
+  "embedding_service/src/tests"
 )
 
-for suite in "${unittest_services[@]}"; do
-  echo "Running tests in $suite"
-  python3 -m unittest discover "$suite" -v
-done
-
-# Pytest-based suite for the embedding service
-if command -v pytest >/dev/null 2>&1; then
-  echo "Running tests in embedding_service/src/tests"
-  pytest embedding_service/src/tests -v
-else
-  echo "pytest not installed; skipping embedding_service tests" >&2
+if ! command -v pytest >/dev/null 2>&1; then
+  echo "pytest not installed; unable to run tests" >&2
+  exit 1
 fi
+
+for suite in "${services[@]}"; do
+  echo "Running tests in $suite"
+  pytest "$suite" -v
+done
