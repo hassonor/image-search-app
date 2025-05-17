@@ -1,10 +1,11 @@
+import os
+import tempfile
 import unittest
 import sys
-import os
 import types
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
 
-# Stub aiofiles to avoid importing the real package
+# Stub aiofiles so publisher module imports succeed
 aiofiles_stub = types.ModuleType("aiofiles")
 aiofiles_stub.open = lambda *args, **kwargs: None
 sys.modules.setdefault("aiofiles", aiofiles_stub)
@@ -17,7 +18,6 @@ sys.modules.setdefault("aio_pika", aio_pika_stub)
 sys.modules.setdefault("redis", types.ModuleType("redis"))
 sys.modules.setdefault("redis.asyncio", types.ModuleType("redis.asyncio"))
 pybloom_stub = types.ModuleType("pybloom_live")
-
 class BloomFilter:
     def __init__(self, *args, **kwargs):
         pass
@@ -52,28 +52,37 @@ sys.modules.setdefault("infrastructure.redis_client", redis_stub)
 root_path = os.path.join(os.path.dirname(__file__), "..", "..", "src")
 sys.path.insert(0, root_path)
 
-from file_reader_service.src.application.publisher import process_and_publish_chunk
+from file_reader_service.src.application.publisher import publish_urls
 from domain.file_reader_service import FileReaderService
 
-class TestPublisher(unittest.IsolatedAsyncioTestCase):
-    async def test_process_and_publish_chunk(self):
+class TestPublishUrlsIntegration(unittest.IsolatedAsyncioTestCase):
+    async def test_publish_urls(self):
+        with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp:
+            tmp.write("http://example.com/a.jpg\n")
+            tmp.write("http://example.com/b.jpg\n")
+            file_path = tmp.name
+
+        class AsyncFile:
+            def __init__(self, path, mode):
+                self._f = open(path, mode)
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                self._f.close()
+
+            async def __aiter__(self):
+                for line in self._f:
+                    yield line
+
         mock_channel = AsyncMock()
-        # Patch the rabbitmq_client.channel as before
-        with patch(
-            "file_reader_service.src.application.publisher.rabbitmq_client.channel",
-            mock_channel,
-        ):
-            # Use a mock redis_client and configure it to return a URL
-            mock_redis_client = AsyncMock()
-            mock_redis_client.check_urls_batch.return_value = [
-                "http://example.com/img.jpg"
-            ]
+        service = FileReaderService(redis_client=AsyncMock())
+        service.redis_client.check_urls_batch.side_effect = lambda urls: urls
 
-            # Create the service with the mock_redis_client
-            service = FileReaderService(redis_client=mock_redis_client)
+        with patch("file_reader_service.src.application.publisher.aiofiles.open", lambda p, m: AsyncFile(p, m)), \
+             patch("file_reader_service.src.application.publisher.rabbitmq_client.channel", mock_channel):
+            await publish_urls(file_path, 1, service)
 
-            # Call process_and_publish_chunk with both arguments
-            await process_and_publish_chunk(["http://example.com/img.jpg"], service)
-
-            # Verify that a message was published
-            mock_channel.default_exchange.publish.assert_awaited_once()
+        self.assertEqual(mock_channel.default_exchange.publish.await_count, 2)
+        os.remove(file_path)

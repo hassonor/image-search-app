@@ -173,6 +173,23 @@ Custom Grafana dashboards provide visualization for:
 - Service health
 - Processing rates
 
+## Running Tests
+
+Each microservice provides **unit**, **integration**, and **end-to-end** suites
+under its respective `tests` directory. A helper script runs them all:
+
+```bash
+./run_all_tests.sh
+```
+
+To collect coverage you need the `coverage` package installed. Example for the
+API service:
+
+```bash
+python -m coverage run -m unittest discover api_service/tests
+python -m coverage report --fail-under=100
+```
+
 ## Contributing
 
 1. Fork the repository
