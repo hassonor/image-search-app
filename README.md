@@ -181,6 +181,8 @@ under its respective `tests` directory. A helper script runs them all:
 ```bash
 ./run_all_tests.sh
 ```
+This script executes unit tests for the API, File Reader, and Downloader
+services and, when `pytest` is available, the embedding service's test suite.
 
 To collect coverage you need the `coverage` package installed. Example for the
 API service:
