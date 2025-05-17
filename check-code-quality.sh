@@ -1,5 +1,5 @@
 #!/bin/bash
 
-black --config .black.toml
-ruff . --config ruff.toml --fix
-isort . --settings .isort.cfg
+black . --config .black.toml --check
+ruff check . --config ruff.toml
+isort . --settings .isort.cfg --check-only
