@@ -41,8 +41,6 @@ class TestMessageProcessor(unittest.IsolatedAsyncioTestCase):
     async def test_process_message_success(self):
         with patch("domain.embedding_service.EmbeddingService.__init__", lambda self, model_name="ViT-B/32": None):
             service = EmbeddingService(model_name="ViT-B/32")
-        service.generate_embedding_from_image = AsyncMock(return_value=[0.1, 0.2, 0.3])
-
         # Mock embedding generation
         with patch.object(
             service, "generate_embedding_from_image", return_value=[0.1, 0.2, 0.3]
