@@ -2,7 +2,7 @@ import os
 import sys
 import types
 import unittest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 root_path = os.path.join(os.path.dirname(__file__), "..", "..", "src")
 sys.path.insert(0, root_path)
@@ -35,9 +35,11 @@ class TestMisc(unittest.IsolatedAsyncioTestCase):
             server.serve.assert_awaited_once()
 
     def test_shutdown(self):
-        with patch("asyncio.all_tasks", return_value=[AsyncMock()]) as all_tasks:
+        mock_task = MagicMock()
+        with patch("asyncio.all_tasks", return_value=[mock_task]) as all_tasks:
             shutdown()
             all_tasks.assert_called_once()
+            mock_task.cancel.assert_called_once()
 
     async def test_start_metrics_server(self):
         with patch("infrastructure.metrics.start_http_server") as start_http:
