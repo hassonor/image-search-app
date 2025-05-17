@@ -3,6 +3,7 @@ import os
 import sys
 import types
 import unittest
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 root_path = os.path.join(os.path.dirname(__file__), "..", "..")
@@ -35,13 +36,34 @@ pil_image_module.new = lambda *args, **kwargs: dummy_image()
 pil_module.Image = pil_image_module
 sys.modules.setdefault("PIL", pil_module)
 sys.modules.setdefault("PIL.Image", pil_image_module)
+
+
+class Counter:
+    def __init__(self, *_, **__):
+        self._val = 0.0
+        self._value = SimpleNamespace(get=lambda: self._val)
+
+    def inc(self, amount: float = 1.0) -> None:
+        self._val += amount
+
+
+class Histogram:
+    def __init__(self, *_, **__):
+        self._val = 0.0
+        self._value = SimpleNamespace(get=lambda: self._val)
+
+    def observe(self, value: float) -> None:  # noqa: ARG002
+        self._val += 1
+
+
 prometheus_stub = types.ModuleType("prometheus_client")
-prometheus_stub.Counter = MagicMock
-prometheus_stub.Histogram = MagicMock
-prometheus_stub.start_http_server = MagicMock
-sys.modules.setdefault("prometheus_client", prometheus_stub)
+prometheus_stub.Counter = Counter
+prometheus_stub.Histogram = Histogram
+prometheus_stub.start_http_server = MagicMock()
+sys.modules["prometheus_client"] = prometheus_stub
 
 from domain.embedding_service import EmbeddingService  # noqa: E402
+
 
 
 class TestEmbeddingService(unittest.IsolatedAsyncioTestCase):
