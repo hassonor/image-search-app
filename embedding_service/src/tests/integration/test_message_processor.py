@@ -86,3 +86,9 @@ class TestMessageProcessorIntegration(unittest.IsolatedAsyncioTestCase):
             await process_message(data, service)
             mock_gen.assert_called_once_with("p")
             mock_es.index_embedding.assert_awaited_once()
+
+    def tearDown(self):
+        from infrastructure import metrics
+
+        metrics.embeddings_generated._val = 0.0
+        metrics.embedding_errors._val = 0.0

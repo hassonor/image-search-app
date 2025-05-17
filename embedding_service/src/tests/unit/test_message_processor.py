@@ -68,6 +68,10 @@ from infrastructure.metrics import embedding_errors, embeddings_generated
 
 
 class TestMessageProcessor(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        embeddings_generated._val = 0.0
+        embedding_errors._val = 0.0
+
     async def test_process_message_success(self):
         with patch(
             "domain.embedding_service.EmbeddingService.__init__",
