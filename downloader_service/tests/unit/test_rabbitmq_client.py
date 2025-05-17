@@ -69,3 +69,16 @@ class TestRabbitMQClient(unittest.IsolatedAsyncioTestCase):
 
         await client.consume("q", AsyncMock())
         queue.consume.assert_awaited()
+
+    async def test_on_message_bad_payload(self):
+        client = RabbitMQClient()
+        callback = AsyncMock()
+        on_message = client._create_on_message(callback)
+
+        bad_json = FakeMessage(b"not-json")
+        await on_message(bad_json)
+        callback.assert_not_called()
+
+        missing_url = FakeMessage(json.dumps({"no": "url"}).encode())
+        await on_message(missing_url)
+        callback.assert_not_called()
