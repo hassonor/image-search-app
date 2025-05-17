@@ -3,9 +3,13 @@ from unittest.mock import AsyncMock
 import sys
 import os
 
+from .utils import setup_stub_modules
+
 # Set PYTHONPATH so that tests can find the modules in src easily.
 root_path = os.path.join(os.path.dirname(__file__), "..", "..", "src")
 sys.path.insert(0, root_path)
+
+setup_stub_modules()
 
 @pytest.fixture
 def mock_rabbitmq_client():
