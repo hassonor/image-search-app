@@ -3,7 +3,7 @@ version: "3.9"
 services:
   test-runner:
     build: .
-    command: ["pytest", "--cov=downloader_service", "--cov-report=term-missing"]
+    command: ["pytest", "--cov=downloader_service/src", "--cov-report=term-missing"]
     volumes:
       - .:/app
     depends_on:
