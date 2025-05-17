@@ -176,20 +176,22 @@ Custom Grafana dashboards provide visualization for:
 ## Running Tests
 
 Each microservice provides **unit**, **integration**, and **end-to-end** suites
-under its respective `tests` directory. A helper script runs them all:
+under its respective `tests` directory. A helper script runs them all with
+coverage enforcement:
 
 ```bash
 ./run_all_tests.sh
 ```
-This script executes unit tests for the API, File Reader, and Downloader
-services and, when `pytest` is available, the embedding service's test suite.
+The script invokes `pytest` for each service using the configuration found in
+their respective `pytest.ini` files. Coverage is collected via **pytest-cov**
+and a minimum threshold of **80%** is enforced across all suites.
 
-To collect coverage you need the `coverage` package installed. Example for the
-API service:
+If you want to run a single service's tests manually with coverage, use
+`pytest` directly. For example, running the API service tests:
 
 ```bash
-python -m coverage run -m unittest discover api_service/tests
-python -m coverage report --fail-under=100
+pytest api_service/tests --cov=api_service/src \
+       --cov-report=term-missing --cov-fail-under=80
 ```
 
 ## Contributing
