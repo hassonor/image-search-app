@@ -1,0 +1,21 @@
+version: 2.1
+
+jobs:
+  test:
+    docker:
+      - image: cimg/python:3.11
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: |
+            python -m pip install --upgrade pip
+            pip install -r api_service/requirements.txt -r file_reader_service/requirements.txt -r downloader_service/requirements.txt
+      - run:
+          name: Run tests
+          command: ./run_all_tests.sh
+
+workflows:
+  test:
+    jobs:
+      - test
