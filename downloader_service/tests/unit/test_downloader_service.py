@@ -95,7 +95,9 @@ class TestDownloaderService(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(patcher.stop)
         self.mock_session_cls = patcher.start()
         self.mock_session = self.mock_session_cls.return_value
-        self.service = DownloaderService(database=self.mock_db, redis_client=self.mock_redis)
+        self.service = DownloaderService(
+            database=self.mock_db, redis_client=self.mock_redis
+        )
         self.service.session = self.mock_session
 
     async def test_download_image_success(self):
@@ -150,3 +152,46 @@ class TestDownloaderService(unittest.IsolatedAsyncioTestCase):
     def test_is_valid_url(self):
         self.assertTrue(DownloaderService.is_valid_url("http://example.com"))
         self.assertFalse(DownloaderService.is_valid_url("not-a-url"))
+
+    async def test_download_image_lock_not_acquired(self):
+        self.mock_redis.acquire_download_lock.return_value = False
+        result = await self.service.download_image("http://example.com/img.jpg")
+        self.assertIsNone(result)
+        self.mock_session.get.assert_not_called()
+
+    async def test_download_image_duplicate_sources(self):
+        self.mock_redis.acquire_download_lock.return_value = True
+        self.mock_redis.is_url_downloaded.return_value = True
+        with patch("domain.download_service.images_downloaded") as mock_counter:
+            result = await self.service.download_image("http://example.com/img.jpg")
+            self.assertIsNone(result)
+            mock_counter.inc.assert_not_called()
+        self.mock_session.get.assert_not_called()
+
+    async def test_download_image_marked_not_found_early(self):
+        self.mock_redis.acquire_download_lock.return_value = True
+        self.mock_redis.is_url_downloaded.return_value = False
+        self.mock_redis.is_url_marked_as_not_found.return_value = True
+        result = await self.service.download_image("http://example.com/img.jpg")
+        self.assertIsNone(result)
+        self.mock_session.get.assert_not_called()
+
+    async def test_download_image_client_error(self):
+        self.mock_redis.acquire_download_lock.return_value = True
+        self.mock_redis.is_url_downloaded.return_value = False
+        self.mock_redis.is_url_marked_as_not_found.return_value = False
+        self.mock_session.get.side_effect = aiohttp_mod.ClientError()
+        with patch("domain.download_service.download_errors") as mock_errors:
+            result = await self.service.download_image("http://example.com/img.jpg")
+            self.assertIsNone(result)
+            mock_errors.inc.assert_called_once()
+
+    async def test_download_image_http_error(self):
+        self.mock_redis.acquire_download_lock.return_value = True
+        self.mock_redis.is_url_downloaded.return_value = False
+        self.mock_redis.is_url_marked_as_not_found.return_value = False
+        self.mock_session.get.return_value = MockResponse(500)
+        with patch("domain.download_service.download_errors") as mock_errors:
+            result = await self.service.download_image("http://example.com/img.jpg")
+            self.assertIsNone(result)
+            mock_errors.inc.assert_called_once()
