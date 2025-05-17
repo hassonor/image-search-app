@@ -54,3 +54,44 @@ class TestRedisClient(unittest.IsolatedAsyncioTestCase):
         urls = ["a", "b", "c"]
         remaining = await client.check_urls_batch(urls)
         self.assertEqual(remaining, ["a"])
+
+
+class SimpleRedis:
+    def __init__(self):
+        self.store = {}
+
+    async def set(self, key, value, nx=False, ex=None):
+        if nx and key in self.store:
+            return None
+        self.store[key] = value
+        return True
+
+    async def exists(self, key):
+        return 1 if key in self.store else 0
+
+    async def delete(self, key):
+        self.store.pop(key, None)
+
+    def pipeline(self):
+        return AsyncMock()
+
+
+class TestRedisClientLocks(unittest.IsolatedAsyncioTestCase):
+    async def test_lock_and_flags(self):
+        client = RedisClient()
+        client.redis = SimpleRedis()
+
+        acquired = await client.acquire_download_lock("u")
+        self.assertTrue(acquired)
+        self.assertFalse(await client.acquire_download_lock("u"))
+
+        await client.cache_url_as_downloaded("u", "/p")
+        self.assertTrue(await client.is_url_downloaded("u"))
+
+        await client.cache_url_as_not_found(
+            "nf",
+        )
+        self.assertTrue(await client.is_url_marked_as_not_found("nf"))
+
+        await client.release_download_lock("u")
+        self.assertEqual(await client.redis.exists("lock:u"), 0)
