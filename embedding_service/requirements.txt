@@ -1,3 +1,6 @@
+# Build dependencies (must be installed first for CLIP)
+setuptools>=65.0.0
+
 # Configuration
 python-dotenv==1.0.1
 pydantic==2.12.5
@@ -11,8 +14,9 @@ aiohttp==3.13.3
 elasticsearch[async]==8.19.3
 
 # Image Processing and Embedding
-clip @ git+https://github.com/openai/CLIP.git
+torch==2.5.1
 torchvision==0.20.1
+clip @ git+https://github.com/openai/CLIP.git
 Pillow==11.0.0
 
 # Metrics
