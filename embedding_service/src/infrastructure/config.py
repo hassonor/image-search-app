@@ -3,9 +3,14 @@ config.py
 
 Provides configuration settings for the embedding service using pydantic BaseSettings.
 Values are loaded from environment variables defined in a .env file.
+
+In Pydantic v2, field names automatically map to environment variables.
+For example, LOG_LEVEL field will read from LOG_LEVEL env var.
+The default values are used if the environment variable is not set.
 """
 
-from pydantic import BaseSettings, Field
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     """
@@ -27,37 +32,37 @@ class Settings(BaseSettings):
         METRICS_PORT (int): Port where Prometheus metrics are served.
         EMBEDDING_QUEUE (str): The RabbitMQ queue for embeddings.
     """
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=True
+    )
 
     # Logging
-    LOG_LEVEL: str = Field("INFO", env="LOG_LEVEL")
-    LOG_FORMAT: str = Field("%(asctime)s [%(levelname)s] %(name)s: %(message)s", env="LOG_FORMAT")
+    LOG_LEVEL: str = Field(default="INFO")
+    LOG_FORMAT: str = Field(default="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
     # RabbitMQ Settings
-    RABBITMQ_HOST: str = Field("rabbitmq", env="RABBITMQ_HOST")
-    RABBITMQ_PORT: int = Field(5672, env="RABBITMQ_PORT")
-    RABBITMQ_USER: str = Field("guest", env="RABBITMQ_USER")
-    RABBITMQ_PASSWORD: str = Field("guest", env="RABBITMQ_PASSWORD")
+    RABBITMQ_HOST: str = Field(default="rabbitmq")
+    RABBITMQ_PORT: int = Field(default=5672)
+    RABBITMQ_USER: str = Field(default="guest")
+    RABBITMQ_PASSWORD: str = Field(default="guest")
 
     # Number of Consumers
-    NUM_CONSUMERS: int = Field(10, env="NUM_CONSUMERS")
+    NUM_CONSUMERS: int = Field(default=10)
 
     # Elasticsearch Settings
-    ELASTICSEARCH_HOST: str = Field("elasticsearch", env="ELASTICSEARCH_HOST")
-    ELASTICSEARCH_PORT: int = Field(9200, env="ELASTICSEARCH_PORT")
-    ELASTICSEARCH_INDEX: str = Field("image_embeddings", env="ELASTICSEARCH_INDEX")
+    ELASTICSEARCH_HOST: str = Field(default="elasticsearch")
+    ELASTICSEARCH_PORT: int = Field(default=9200)
+    ELASTICSEARCH_INDEX: str = Field(default="image_embeddings")
 
     # Embedding Model Settings
-    EMBEDDING_MODEL: str = Field("ViT-B/32", env="EMBEDDING_MODEL")
+    EMBEDDING_MODEL: str = Field(default="ViT-B/32")
 
     # Metrics
-    METRICS_PORT: int = Field(8001, env="METRICS_PORT")
+    METRICS_PORT: int = Field(default=8001)
 
     # Embedding Queue
-    EMBEDDING_QUEUE: str = Field("image_embeddings", env="EMBEDDING_QUEUE")
-
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    EMBEDDING_QUEUE: str = Field(default="image_embeddings")
 
 
 settings = Settings()

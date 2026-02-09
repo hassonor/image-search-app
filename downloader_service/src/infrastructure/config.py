@@ -1,43 +1,50 @@
-from pydantic import BaseSettings, Field
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    LOG_LEVEL: str = Field("INFO", env="LOG_LEVEL")
-    LOG_FORMAT: str = Field("%(asctime)s [%(levelname)s] %(name)s: %(message)s", env="LOG_FORMAT")
+    """
+    In Pydantic v2, field names automatically map to environment variables.
+    For example, LOG_LEVEL field will read from LOG_LEVEL env var.
+    The default values are used if the environment variable is not set.
+    """
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=True
+    )
+
+    LOG_LEVEL: str = Field(default="INFO")
+    LOG_FORMAT: str = Field(default="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
     # PostgreSQL
-    PG_HOST: str = Field("localhost", env="PG_HOST")
-    PG_PORT: int = Field(5432, env="PG_PORT")
-    PG_USER: str = Field("user", env="PG_USER")
-    PG_PASSWORD: str = Field("password", env="PG_PASSWORD")
-    PG_DATABASE: str = Field("mydb", env="PG_DATABASE")
+    PG_HOST: str = Field(default="localhost")
+    PG_PORT: int = Field(default=5432)
+    PG_USER: str = Field(default="user")
+    PG_PASSWORD: str = Field(default="password")
+    PG_DATABASE: str = Field(default="mydb")
 
     # Redis
-    REDIS_HOST: str = Field("localhost", env="REDIS_HOST")
-    REDIS_PORT: int = Field(6379, env="REDIS_PORT")
-    REDIS_DB: int = Field(0, env="REDIS_DB")
+    REDIS_HOST: str = Field(default="localhost")
+    REDIS_PORT: int = Field(default=6379)
+    REDIS_DB: int = Field(default=0)
 
     # RabbitMQ
-    RABBITMQ_HOST: str = Field("localhost", env="RABBITMQ_HOST")
-    RABBITMQ_PORT: int = Field(5672, env="RABBITMQ_PORT")
-    RABBITMQ_USER: str = Field("guest", env="RABBITMQ_USER")
-    RABBITMQ_PASSWORD: str = Field("guest", env="RABBITMQ_PASSWORD")
-    DOWNLOAD_QUEUE: str = Field("image_downloads", env="DOWNLOAD_QUEUE")
-    EMBEDDING_QUEUE: str = Field("image_embeddings", env="EMBEDDING_QUEUE")
+    RABBITMQ_HOST: str = Field(default="localhost")
+    RABBITMQ_PORT: int = Field(default=5672)
+    RABBITMQ_USER: str = Field(default="guest")
+    RABBITMQ_PASSWORD: str = Field(default="guest")
+    DOWNLOAD_QUEUE: str = Field(default="image_downloads")
+    EMBEDDING_QUEUE: str = Field(default="image_embeddings")
 
     # Downloader
-    DOWNLOAD_TIMEOUT: int = Field(30, env="DOWNLOAD_TIMEOUT")
-    USER_AGENT: str = Field("MyImageDownloader/1.0", env="USER_AGENT")
-    METRICS_PORT: int = Field(8000, env="METRICS_PORT")
+    DOWNLOAD_TIMEOUT: int = Field(default=30)
+    USER_AGENT: str = Field(default="MyImageDownloader/1.0")
+    METRICS_PORT: int = Field(default=8000)
 
-    IMAGE_STORAGE_PATH: str = Field("/app/images", env="IMAGE_STORAGE_PATH")
+    IMAGE_STORAGE_PATH: str = Field(default="/app/images")
 
-    BLOOM_EXPECTED_ITEMS: int = Field(10_000_000, env="BLOOM_EXPECTED_ITEMS")
-    BLOOM_ERROR_RATE: float = Field(0.0001, env="BLOOM_ERROR_RATE")
+    BLOOM_EXPECTED_ITEMS: int = Field(default=10_000_000)
+    BLOOM_ERROR_RATE: float = Field(default=0.0001)
 
-    NUM_CONSUMERS: int = Field(4, env="NUM_CONSUMERS")
-
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    NUM_CONSUMERS: int = Field(default=4)
 
 settings = Settings()
