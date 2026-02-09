@@ -1,31 +1,38 @@
-from pydantic import BaseSettings, Field
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    LOG_LEVEL: str = Field("INFO", env="LOG_LEVEL")
-    LOG_FORMAT: str = Field("%(asctime)s [%(levelname)s] %(name)s: %(message)s", env="LOG_FORMAT")
+    """
+    In Pydantic v2, field names automatically map to environment variables.
+    For example, LOG_LEVEL field will read from LOG_LEVEL env var.
+    The default values are used if the environment variable is not set.
+    """
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=True
+    )
 
-    RABBITMQ_HOST: str = Field("localhost", env="RABBITMQ_HOST")
-    RABBITMQ_PORT: int = Field(5672, env="RABBITMQ_PORT")
-    RABBITMQ_USER: str = Field("guest", env="RABBITMQ_USER")
-    RABBITMQ_PASSWORD: str = Field("guest", env="RABBITMQ_PASSWORD")
-    DOWNLOAD_QUEUE: str = Field("image_downloads", env="DOWNLOAD_QUEUE")
+    LOG_LEVEL: str = Field(default="INFO")
+    LOG_FORMAT: str = Field(default="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
-    REDIS_HOST: str = Field("localhost", env="REDIS_HOST")
-    REDIS_PORT: int = Field(6379, env="REDIS_PORT")
-    REDIS_DB: int = Field(0, env="REDIS_DB")
+    RABBITMQ_HOST: str = Field(default="localhost")
+    RABBITMQ_PORT: int = Field(default=5672)
+    RABBITMQ_USER: str = Field(default="guest")
+    RABBITMQ_PASSWORD: str = Field(default="guest")
+    DOWNLOAD_QUEUE: str = Field(default="image_downloads")
 
-    URLS_FILE_PATH: str = Field("/app_input/image_urls.txt", env="URLS_FILE_PATH")
-    URL_CHUNK_SIZE: int = Field(10000, env="URL_CHUNK_SIZE")
+    REDIS_HOST: str = Field(default="localhost")
+    REDIS_PORT: int = Field(default=6379)
+    REDIS_DB: int = Field(default=0)
+
+    URLS_FILE_PATH: str = Field(default="/app_input/image_urls.txt")
+    URL_CHUNK_SIZE: int = Field(default=10000)
 
     # Bloom Filter
-    BLOOM_EXPECTED_ITEMS: int = Field(10_000_000, env="BLOOM_EXPECTED_ITEMS")
-    BLOOM_ERROR_RATE: float = Field(0.0001, env="BLOOM_ERROR_RATE")
+    BLOOM_EXPECTED_ITEMS: int = Field(default=10_000_000)
+    BLOOM_ERROR_RATE: float = Field(default=0.0001)
 
-    METRICS_PORT: int = Field(8005, env="METRICS_PORT")
-    API_PORT: int = Field(8006, env="API_PORT")
-
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    METRICS_PORT: int = Field(default=8005)
+    API_PORT: int = Field(default=8006)
 
 settings = Settings()

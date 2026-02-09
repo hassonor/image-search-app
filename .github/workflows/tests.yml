@@ -18,7 +18,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install pytest pytest-cov
-          pip install -r api_service/requirements.txt \
+          # Install setuptools first to fix CLIP installation
+          pip install setuptools>=65.0.0
+          # Install requirements with no-build-isolation for CLIP
+          pip install --no-build-isolation -r api_service/requirements.txt \
                       -r file_reader_service/requirements.txt \
                       -r downloader_service/requirements.txt \
                       -r embedding_service/src/tests/requirements-test.txt
